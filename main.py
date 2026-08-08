@@ -646,6 +646,11 @@ async def ai_chat(msg: Message):
         await msg.answer("Hozir javob berolmadim. Keyinroq urinib ko'ring.")
 
 # =============================== ISHGA TUSHIRISH ====================
+from aiohttp import web
+
+async def handle_ping(request):
+    return web.Response(text="Bot 24/7 onlayn ishlamoqda!")
+
 async def main():
     logging.basicConfig(level=logging.INFO)
     await init_db()
@@ -653,11 +658,28 @@ async def main():
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
     await bot.delete_webhook(drop_pending_updates=True)
-    print("Bot ishga tushdi...")
-    await dp.start_polling(bot)
+    print("🚀 Bot ishga tushdi...")
+    
+    # 1. Botni orqa fonda ishga tushirish (Polling)
+    asyncio.create_task(dp.start_polling(bot))
+    
+    # 2. Render tekinga ishlashi uchun soxta veb-server yaratamiz
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    # Render o'zi beradigan PORT ni olamiz (yo'q bo'lsa 8080)
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    
+    # 3. Dastur to'xtab qolmasligi uchun aylana jarayon
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        print("Bot to'xtatildi")
+        print("🛑 Bot to'xtatildi.")
