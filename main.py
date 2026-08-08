@@ -18,7 +18,7 @@ from aiogram.types import (Message, CallbackQuery, InlineKeyboardMarkup,
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # ============================ SOZLAMALAR ============================
-BOT_TOKEN   = "TOKEN_SHU_YERGA_YOZILADI" 
+BOT_TOKEN   = "8669054173:AAGrCaUidTFAlxd1PKHTIc2xPlEf_AjPZrc" 
 ADMINS      = [5700159922]
 ADMIN_GROUP = 0
 CARD_NUMBER = "5614 6867 0900 3860"
