@@ -644,7 +644,23 @@ async def ai_chat(msg: Message):
     except Exception as e:
         logging.warning(e)
         await msg.answer("Hozir javob berolmadim. Keyinroq urinib ko'ring.")
-
+# ===================== KATEGORIYA O'CHIRISH =====================
+@router.message(Command("delcat"))
+async def delete_category(msg: Message):
+    if msg.from_user.id not in ADMINS:
+        return
+    parts = msg.text.split()
+    if len(parts) == 1:
+        cats = await q("SELECT * FROM categories WHERE is_active=1")
+        if not cats:
+            await msg.answer("📭 Hozircha kategoriyalar yo'q.")
+            return
+        lst = "\n".join(f"{c['id']} - {c['title']}" for c in cats)
+        await msg.answer(f"🗑 <b>Kategoriyani o'chirish uchun buyruq yoniga ID raqamini yozing:</b>\nMasalan: <code>/delcat 1</code>\n\n📁 <b>Mavjud kategoriyalar ro'yxati:</b>\n{lst}")
+    elif len(parts) == 2 and parts[1].isdigit():
+        cid = int(parts[1])
+        await q("UPDATE categories SET is_active=0 WHERE id=?", (cid,), write=True)
+        await msg.answer(f"✅ {cid}-ID raqamli bo'lim o'chirildi (yashirildi)!")
 # =============================== ISHGA TUSHIRISH ====================
 from aiohttp import web
 
