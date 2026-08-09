@@ -593,7 +593,7 @@ async def adm_broadcast(msg: Message, state: FSMContext, bot: Bot):
 # ============================ AI YORDAMCHI (GEMINI) ==========================
 @router.message(Ai.chat)
 async def ai_chat(msg: Message):
-    GEMINI_API_KEY = "AQ.Ab8RN6LduR_cRZJo0P2QvMz0oBaPhTCHYPiM8Js5OtySezc92w"
+    GEMINI_API_KEY = "AQ.Ab8RN6JwNyNSvtYRxvMxbeOfZt7rOCRd9ti923RubWVl3rMIaA"
     
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     body = {
