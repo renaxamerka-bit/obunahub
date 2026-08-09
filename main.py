@@ -35,10 +35,10 @@ DB_PATH     = "obunahub.db"
 # ==================== PREMIUM EMOJILAR LUG'ATI ======================
 PREMIUM_EMOJIS = {
     1: '<tg-emoji emoji-id="5452138632091569963">🤖</tg-emoji>', # Gemini
-    2: '✴️', # Claude (ID berilmagan)
+    2: '✴️', # Claude 
     3: '<tg-emoji emoji-id="5303113132460250222">💬</tg-emoji>', # ChatGPT
     4: '<tg-emoji emoji-id="6174520215376763867">🚀</tg-emoji>', # Grok
-    5: '🌊', # Flow Ai (ID berilmagan)
+    5: '🌊', # Flow Ai 
     6: '<tg-emoji emoji-id="5978895591894161700">📹</tg-emoji>', # Capcut
     7: '<tg-emoji emoji-id="6133975818591805751">💎</tg-emoji>'  # Leonardo
 }
@@ -164,7 +164,6 @@ def lang_kb():
 def cats_kb(cats):
     b = InlineKeyboardBuilder()
     for c in cats:
-        # VIP dizayn: tugmalarda faqat silliq va toza yozuvlar (emojilarsiz)
         b.row(InlineKeyboardButton(text=f"{c['title']}", callback_data="cat:" + str(c["id"])))
     return b.as_markup()
 
@@ -289,7 +288,6 @@ async def services(msg: Message, state: FSMContext):
     await state.clear()
     cats = await q("SELECT * FROM categories WHERE is_active=1 ORDER BY id")
     if cats:
-        # VIP Matn yaratish
         txt = "📁 <b>Bo'limni tanlang:</b>\n\n"
         for c in cats:
             p_emo = PREMIUM_EMOJIS.get(c["id"], c["emoji"])
@@ -446,7 +444,6 @@ async def open_prod(c: CallbackQuery):
     pid = int(c.data.split(":")[1])
     p = await q("SELECT * FROM products WHERE id=?", (pid,), one=True)
     
-    # Premium emoji mahsulot ma'lumotlarida ham ko'rinadi
     p_emo = PREMIUM_EMOJIS.get(p["cat_id"], p["emoji"]) 
     
     rt, cnt = await rating(pid)
