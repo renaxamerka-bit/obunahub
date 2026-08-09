@@ -590,22 +590,30 @@ async def adm_broadcast(msg: Message, state: FSMContext, bot: Bot):
             fail += 1
         await asyncio.sleep(0.05)
     await msg.answer(f"✅ Yuborildi: {ok} ta, ❌ Xato: {fail} ta", reply_markup=main_menu(msg.from_user.id))
-
-# ============================ AI YORDAMCHI ==========================
+# ============================ AI YORDAMCHI (GEMINI) ==========================
 @router.message(Ai.chat)
 async def ai_chat(msg: Message):
-    if not AI_API_KEY:
-        return await msg.answer("⚠️ AI yordamchi hozircha sozlanmagan. Operator: " + SUPPORT)
-    body = {"model": AI_MODEL, "messages": [{"role": "system", "content": "Sen Obuna Hub raqamli mahsulotlar do'koni yordamchisisan. O'zbek tilida qisqa va aniq javob ber."}, {"role": "user", "content": msg.text}]}
-    headers = {"Authorization": "Bearer " + AI_API_KEY, "Content-Type": "application/json"}
+    GEMINI_API_KEY = "AQ.Ab8RN6LduR_cRZJo0P2QvMz0oBaPhTCHYPiM8Js5OtySezc92w"
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    body = {
+        "contents": [{
+            "parts": [{"text": "Sen Obuna Hub raqamli mahsulotlar do'koni yordamchisisan. O'zbek tilida qisqa va aniq javob ber. Savol: " + msg.text}]
+        }]
+    }
+    headers = {"Content-Type": "application/json"}
+    
     try:
         async with aiohttp.ClientSession() as s:
-            async with s.post(AI_API_URL, json=body, headers=headers, timeout=60) as r:
+            async with s.post(url, json=body, headers=headers, timeout=60) as r:
                 data = await r.json()
-        await msg.answer(data["choices"][0]["message"]["content"])
+                if "candidates" in data:
+                    answer = data["candidates"][0]["content"]["parts"][0]["text"]
+                    await msg.answer(answer)
+                else:
+                    await msg.answer("⚠️ AI hozircha javob berolmadi, birozdan keyin urinib ko'ring.")
     except Exception as e:
         await msg.answer("❌ Hozir javob berolmadim. Keyinroq urinib ko'ring.")
-
 # ===================== KATEGORIYA O'CHIRISH =====================
 @router.message(Command("delcat"))
 async def delete_category(msg: Message):
