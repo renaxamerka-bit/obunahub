@@ -19,20 +19,29 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # ============================ SOZLAMALAR ============================
 BOT_TOKEN   = "8669054173:AAGrCaUidTFAlxd1PKHTIc2xPlEf_AjPZrc" 
-# DIQQAT: Bu yerda sizning Telegram ID ringiz bo'lishi shart!
 ADMINS      = [5700159922]
 ADMIN_GROUP = 0
 CARD_NUMBER = "5614 6867 0900 3860"
 CARD_HOLDER = "ZAYNIDDIN SHODEYEV"
-# Majburiy obuna kanallari ro'yxati (Buni kodda ham, Telegramda ham tekshiring)
 FORCE_SUB   = ["@obunahub_rasmiy", "@obunalarhub_guruh"]
 CHANNEL_URL = "https://t.me/obunahub_rasmiy"
 SUPPORT     = "@XushvaqtovSh"
 CURRENCY    = "so'm"
-CASHBACK    = 0
+CASHBACK    = 1
 REF_BONUS   = 100
 LEVELS      = [(0, "Bronza"), (500000, "Kumush"), (2000000, "Oltin"), (5000000, "Platina")]
 DB_PATH     = "obunahub.db"
+
+# ==================== PREMIUM EMOJILAR LUG'ATI ======================
+PREMIUM_EMOJIS = {
+    1: '<tg-emoji emoji-id="5452138632091569963">🤖</tg-emoji>', # Gemini
+    2: '✴️', # Claude (ID berilmagan)
+    3: '<tg-emoji emoji-id="5303113132460250222">💬</tg-emoji>', # ChatGPT
+    4: '<tg-emoji emoji-id="6174520215376763867">🚀</tg-emoji>', # Grok
+    5: '🌊', # Flow Ai (ID berilmagan)
+    6: '<tg-emoji emoji-id="5978895591894161700">📹</tg-emoji>', # Capcut
+    7: '<tg-emoji emoji-id="6133975818591805751">💎</tg-emoji>'  # Leonardo
+}
 
 # ============================== BAZA ================================
 SCHEMA = """
@@ -128,8 +137,14 @@ def money(v):
     return "{:,}".format(v).replace(",", " ")
 
 # =========================== KLAVIATURALAR ==========================
-BTN = {"srv": "🛍 Xizmatlar", "ai": "🤖 AI Yordamchi", "cart": "🛒 Savatcha",
-       "prof": "👤 Profil", "lang": "🌐 Til", "cont": "📞 Aloqa"}
+BTN = {
+    "srv": "💎 Xizmatlar", 
+    "ai": "🚀 AI Yordamchi", 
+    "cart": "🛒 Savatcha",
+    "prof": "⚜️ Profil", 
+    "lang": "🌐 Til", 
+    "cont": "🎧 Aloqa"
+}
 
 def main_menu(uid):
     kb = [
@@ -149,13 +164,14 @@ def lang_kb():
 def cats_kb(cats):
     b = InlineKeyboardBuilder()
     for c in cats:
-        b.row(InlineKeyboardButton(text=c["emoji"] + " " + c["title"], callback_data="cat:" + str(c["id"])))
+        # VIP dizayn: tugmalarda faqat silliq va toza yozuvlar (emojilarsiz)
+        b.row(InlineKeyboardButton(text=f"{c['title']}", callback_data="cat:" + str(c["id"])))
     return b.as_markup()
 
 def prods_kb(items, cid=0):
     b = InlineKeyboardBuilder()
     for p in items:
-        label = p["emoji"] + " " + p["title"] + " - " + money(p["price"]) + " " + CURRENCY
+        label = f"{p['title']} - {money(p['price'])} {CURRENCY}"
         b.row(InlineKeyboardButton(text=label, callback_data="prod:" + str(p["id"])))
     b.row(InlineKeyboardButton(text="🔙 Orqaga", callback_data="menu:cats"))
     return b.as_markup()
@@ -174,7 +190,6 @@ def admin_order_kb(oid):
 def subs_kb(chs):
     b = InlineKeyboardBuilder()
     for ch in chs:
-        # Usernameda @ bor-yo'qligini tekshirish
         ch_name = ch if not ch.startswith("-100") else f"Channel ({ch})"
         ch_url = f"https://t.me/{ch.lstrip('@')}" if ch.startswith("@") else None
         if ch_url:
@@ -224,7 +239,6 @@ async def missing_subs(bot, uid):
             if m.status in ("left", "kicked"):
                 out.append(ch)
         except Exception as e:
-            # Xatolikni log qilish
             print(f"Sub check failed for {ch}: {e}")
             pass
     return out
@@ -249,20 +263,18 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject, bot
         return
     await msg.answer("👋 Salom, <b>" + msg.from_user.full_name + "</b>!\n\nMenyudan kerakli bo'limni tanlang 👇",
                      reply_markup=main_menu(msg.from_user.id))
+
 @router.callback_query(F.data.startswith("lang:"))
 async def set_lang(c: CallbackQuery, bot: Bot):
     await q("UPDATE users SET lang=? WHERE id=?", (c.data.split(":")[1], c.from_user.id), write=True)
     await c.message.delete()
-    
-    # Yangi qism: Til tanlangach, darhol majburiy obunani tekshirish
     miss = await missing_subs(bot, c.from_user.id)
     if miss:
         await c.message.answer("🛑 <b>Botdan to'liq foydalanish uchun quyidagilarga obuna bo'lishingiz shart:</b>", reply_markup=subs_kb(miss))
         return
-        
-    # Agar obuna bo'lgan bo'lsa yoki obuna talab qilinmasa, menyuni ochish
     await c.message.answer("👋 Salom, <b>" + c.from_user.full_name + "</b>!\n\nMenyudan kerakli bo'limni tanlang 👇",
                            reply_markup=main_menu(c.from_user.id))
+
 @router.callback_query(F.data == "chk")
 async def check_sub(c: CallbackQuery, bot: Bot):
     if await missing_subs(bot, c.from_user.id):
@@ -277,7 +289,14 @@ async def services(msg: Message, state: FSMContext):
     await state.clear()
     cats = await q("SELECT * FROM categories WHERE is_active=1 ORDER BY id")
     if cats:
-        await msg.answer("📁 <b>Bo'limni tanlang:</b>", reply_markup=cats_kb(cats))
+        # VIP Matn yaratish
+        txt = "📁 <b>Bo'limni tanlang:</b>\n\n"
+        for c in cats:
+            p_emo = PREMIUM_EMOJIS.get(c["id"], c["emoji"])
+            txt += f"{p_emo} <b>{c['title']}</b>\n"
+        txt += "\n👇 <i>Kerakli bo'limni pastdagi tugmalardan tanlang:</i>"
+        
+        await msg.answer(txt, reply_markup=cats_kb(cats))
         return
     items = await q("SELECT * FROM products WHERE is_active=1 ORDER BY id")
     if not items:
@@ -353,60 +372,52 @@ async def contact(msg: Message, state: FSMContext):
 @router.message(F.text == BTN["ai"])
 async def ai_start(msg: Message, state: FSMContext):
     await state.set_state(Ai.chat)
-    await msg.answer("🤖 AI Yordamchi sizga yordam beradi. Savolingizni yozing.\n(AI rejimidan chiqish uchun /cancel yozing)")
+    await msg.answer("🚀 AI Yordamchi sizga yordam beradi. Savolingizni yozing.\n(AI rejimidan chiqish uchun /cancel yozing)")
 
-# AI cancel
 @router.message(Command("cancel"), Ai.chat)
 async def ai_cancel(msg: Message, state: FSMContext):
     await state.clear()
     await msg.answer("Ajoyib, bot menyusiga qaytdingiz.", reply_markup=main_menu(msg.from_user.id))
 
-# ============================ DEBUG OBUUNA ============================
 @router.message(F.text == "🔧 Test Obuna")
 @router.message(Command("test_obuna"))
 async def test_subscription_logic(msg: Message, bot: Bot, state: FSMContext):
-    # FSM ni tozalash (AI rejimidan chiqish uchun)
     await state.clear()
-    
     if msg.from_user.id not in ADMINS:
         return 
 
     status_text = "🔧 **Obuna holatini tekshirish:**\n\n"
     all_subscribed = True
-
     for chat in FORCE_SUB:
         try:
-            # Tekshirish
             member = await bot.get_chat_member(chat_id=chat, user_id=msg.from_user.id)
-            
-            # Telegram qaytargan haqiqiy holat
             status_returned = member.status
-            
-            # Bizning kod mantiqi bo'yicha check
             if status_returned in ["member", "administrator", "creator"]:
                 is_sub_check = "✅ A'zo"
             else:
                 is_sub_check = "❌ A'zo emas"
                 all_subscribed = False
-
             status_text += f"🔹 {chat}: <code>{status_returned}</code> ({is_sub_check})\n"
-        
         except Exception as e:
             all_subscribed = False
             status_text += f"🔹 {chat}: ❌ Xatolik: <code>{str(e)}</code>\n"
 
     status_text += f"\n🏆 Yakuniy natija: "
     status_text += "✅ Hamma joyga obuna bo'lingan" if all_subscribed else "❌ Obuna to'liq emas"
-    
     await msg.answer(status_text)
-
 
 # ============================== KATALOG =============================
 @router.callback_query(F.data == "menu:cats")
 async def back_cats(c: CallbackQuery):
     cats = await q("SELECT * FROM categories WHERE is_active=1 ORDER BY id")
     if cats:
-        await c.message.edit_text("📁 <b>Bo'limni tanlang:</b>", reply_markup=cats_kb(cats))
+        txt = "📁 <b>Bo'limni tanlang:</b>\n\n"
+        for cat in cats:
+            p_emo = PREMIUM_EMOJIS.get(cat["id"], cat["emoji"])
+            txt += f"{p_emo} <b>{cat['title']}</b>\n"
+        txt += "\n👇 <i>Kerakli bo'limni pastdagi tugmalardan tanlang:</i>"
+        
+        await c.message.edit_text(txt, reply_markup=cats_kb(cats))
     else:
         items = await q("SELECT * FROM products WHERE is_active=1")
         await c.message.edit_text("🛍 <b>Xizmatlar:</b>", reply_markup=prods_kb(items))
@@ -415,20 +426,34 @@ async def back_cats(c: CallbackQuery):
 async def open_cat(c: CallbackQuery):
     cid = int(c.data.split(":")[1])
     items = await q("SELECT * FROM products WHERE is_active=1 AND cat_id=? ORDER BY id", (cid,))
+    cat_info = await q("SELECT * FROM categories WHERE id=?", (cid,), one=True)
     if not items:
         await c.answer("Bu bo'limda mahsulot yo'q", show_alert=True)
         return
-    await c.message.edit_text("🛍 <b>Xizmatlar:</b>", reply_markup=prods_kb(items, cid))
+        
+    p_emo = PREMIUM_EMOJIS.get(cid, cat_info["emoji"] if cat_info else "📁")
+    cat_title = cat_info["title"] if cat_info else "Xizmatlar"
+    
+    txt = f"{p_emo} <b>{cat_title} xizmatlari:</b>\n\n"
+    for p in items:
+        txt += f"▪️ <b>{p['title']}</b> — {money(p['price'])} {CURRENCY}\n"
+    txt += "\n👇 <i>Kerakli mahsulotni tanlang:</i>"
+    
+    await c.message.edit_text(txt, reply_markup=prods_kb(items, cid))
 
 @router.callback_query(F.data.startswith("prod:"))
 async def open_prod(c: CallbackQuery):
     pid = int(c.data.split(":")[1])
     p = await q("SELECT * FROM products WHERE id=?", (pid,), one=True)
+    
+    # Premium emoji mahsulot ma'lumotlarida ham ko'rinadi
+    p_emo = PREMIUM_EMOJIS.get(p["cat_id"], p["emoji"]) 
+    
     rt, cnt = await rating(pid)
-    txt = (p["emoji"] + " <b>" + p["title"] + "</b>\n\n"
-           "💵 Narxi: <b>" + money(p["price"]) + " " + CURRENCY + "</b>\n"
-           "🔥 Sotilgan: <b>" + str(p["sold"]) + " ta</b>\n\n"
-           "📝 Tavsif:\n" + (p["description"] or "-") + "\n\n"
+    txt = (f"{p_emo} <b>{p['title']}</b>\n\n"
+           "💵 Narxi: <b>" + money(p['price']) + " " + CURRENCY + "</b>\n"
+           "🔥 Sotilgan: <b>" + str(p['sold']) + " ta</b>\n\n"
+           "📝 Tavsif:\n" + (p['description'] or "-") + "\n\n"
            "⭐ Reyting: " + str(rt) + "/5 (" + str(cnt) + " ta sharh)")
     await c.message.edit_text(txt, reply_markup=prod_kb(pid, p["cat_id"] or 0))
 
@@ -674,9 +699,6 @@ async def adm_broadcast(msg: Message, state: FSMContext, bot: Bot):
 # ============================ AI YORDAMCHI (GEMINI) ==========================
 @router.message(Ai.chat)
 async def ai_chat(msg: Message):
-    # Bu API key faqat 2.5 dollarlik hisobingiz uchun. Gemini emas.
-    # Agar Gemini key qo'ymoqchi bo'lsangiz, keshga tushadigan URLni o'zgartiring.
-    # Hozircha Gemini ni ishga tushirish uchun Gemini key kerak.
     GEMINI_API_KEY = "AQ.Ab8RN6JwNyNSvtYRxvMxbeOfZt7rOCRd9ti923RubWVl3rMIaA"
     
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
