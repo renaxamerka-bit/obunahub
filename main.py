@@ -665,11 +665,6 @@ async def delete_category(msg: Message):
 @router.message(Command("test_api"))
 async def boshqa_botga_ulanish(msg: Message):
     await msg.answer("API dan javob kutilmoqda...")
-# =============================== 🚀 ISHGA TUSHIRISH ====================
-from aiohttp import web
-
-async def handle_ping(request):
-# ... (qolgan ishga tushirish kodlari) ...
 # =============================== ISHGA TUSHIRISH ====================
 from aiohttp import web
 
