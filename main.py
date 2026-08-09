@@ -16,14 +16,13 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (Message, CallbackQuery, InlineKeyboardMarkup,
                            InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-
 # ============================ SOZLAMALAR ============================
 BOT_TOKEN   = "8669054173:AAGrCaUidTFAlxd1PKHTIc2xPlEf_AjPZrc" 
 ADMINS      = [5700159922]
 ADMIN_GROUP = 0
 CARD_NUMBER = "5614 6867 0900 3860"
 CARD_HOLDER = "ZAYNIDDIN SHODEYEV"
-FORCE_SUB   = ["@obunahub_rasmiy"]
+FORCE_SUB   = ["@obunahub_rasmiy", "@obunalarhub_guruh"]
 CHANNEL_URL = "https://t.me/obunahub_rasmiy"
 SUPPORT     = "@XushvaqtovSh"
 CURRENCY    = "so'm"
@@ -31,7 +30,6 @@ CASHBACK    = 1
 REF_BONUS   = 100
 LEVELS      = [(0, "Bronza"), (500000, "Kumush"), (2000000, "Oltin"), (5000000, "Platina")]
 DB_PATH     = "obunahub.db"
-
 # ============================== BAZA ================================
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users(
