@@ -31,7 +31,7 @@ CASHBACK    = 1
 REF_BONUS   = 100
 LEVELS      = [(0, "Bronza"), (500000, "Kumush"), (2000000, "Oltin"), (5000000, "Platina")]
 DB_PATH     = "obunahub.db"
-AI_API_KEY  = os.getenv("AI_API_KEY", "")
+AI_API_KEY  = os.getenv("AI_API_KEY", "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")
 AI_API_URL  = "https://api.openai.com/v1/chat/completions"
 AI_MODEL    = "gpt-4o-mini"
 
