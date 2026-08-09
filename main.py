@@ -16,20 +16,24 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (Message, CallbackQuery, InlineKeyboardMarkup,
                            InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
 # ============================ SOZLAMALAR ============================
 BOT_TOKEN   = "8669054173:AAGrCaUidTFAlxd1PKHTIc2xPlEf_AjPZrc" 
+# DIQQAT: Bu yerda sizning Telegram ID ringiz bo'lishi shart!
 ADMINS      = [5700159922]
 ADMIN_GROUP = 0
 CARD_NUMBER = "5614 6867 0900 3860"
 CARD_HOLDER = "ZAYNIDDIN SHODEYEV"
+# Majburiy obuna kanallari ro'yxati (Buni kodda ham, Telegramda ham tekshiring)
 FORCE_SUB   = ["@obunahub_rasmiy", "@obunalarhub_guruh"]
 CHANNEL_URL = "https://t.me/obunahub_rasmiy"
 SUPPORT     = "@XushvaqtovSh"
 CURRENCY    = "so'm"
-CASHBACK    = 1
+CASHBACK    = 0
 REF_BONUS   = 100
 LEVELS      = [(0, "Bronza"), (500000, "Kumush"), (2000000, "Oltin"), (5000000, "Platina")]
 DB_PATH     = "obunahub.db"
+
 # ============================== BAZA ================================
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users(
@@ -68,7 +72,6 @@ async def init_db():
     async with aiosqlite.connect(DB_PATH) as d:
         await d.executescript(SCHEMA)
         
-        # Baza bo'sh bo'lsa, ma'lumotlarni avtomatik to'ldirish (Render o'chib yonsa ham yo'qolmaydi)
         cur = await d.execute("SELECT COUNT(*) FROM categories")
         count = await cur.fetchone()
         
@@ -135,7 +138,7 @@ def main_menu(uid):
         [KeyboardButton(text=BTN["lang"]), KeyboardButton(text=BTN["cont"])]
     ]
     if uid in ADMINS:
-        kb.append([KeyboardButton(text="⚙️ Boshqarish")])
+        kb.append([KeyboardButton(text="⚙️ Boshqarish"), KeyboardButton(text="🔧 Test Obuna")])
     return ReplyKeyboardMarkup(resize_keyboard=True, keyboard=kb)
 
 def lang_kb():
@@ -171,7 +174,13 @@ def admin_order_kb(oid):
 def subs_kb(chs):
     b = InlineKeyboardBuilder()
     for ch in chs:
-        b.row(InlineKeyboardButton(text="📢 " + ch, url="https://t.me/" + ch.lstrip("@")))
+        # Usernameda @ bor-yo'qligini tekshirish
+        ch_name = ch if not ch.startswith("-100") else f"Channel ({ch})"
+        ch_url = f"https://t.me/{ch.lstrip('@')}" if ch.startswith("@") else None
+        if ch_url:
+            b.row(InlineKeyboardButton(text="📢 Obuna bo'lish", url=ch_url))
+        else:
+             b.row(InlineKeyboardButton(text=f"📢 {ch_name}", callback_data="nothing"))
     b.row(InlineKeyboardButton(text="✅ A'zo bo'ldim", callback_data="chk"))
     return b.as_markup()
 
@@ -214,7 +223,9 @@ async def missing_subs(bot, uid):
             m = await bot.get_chat_member(ch, uid)
             if m.status in ("left", "kicked"):
                 out.append(ch)
-        except Exception:
+        except Exception as e:
+            # Xatolikni log qilish
+            print(f"Sub check failed for {ch}: {e}")
             pass
     return out
 
@@ -234,7 +245,7 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject, bot
         return
     miss = await missing_subs(bot, msg.from_user.id)
     if miss:
-        await msg.answer("🛑 <b>Botdan to'liq foydalanish uchun kanallarga obuna bo'lishingiz shart:</b>", reply_markup=subs_kb(miss))
+        await msg.answer("🛑 <b>Botdan to'liq foydalanish uchun quyidagilarga obuna bo'lishingiz shart:</b>", reply_markup=subs_kb(miss))
         return
     await msg.answer("👋 Salom, <b>" + msg.from_user.full_name + "</b>!\n\nMenyudan kerakli bo'limni tanlang 👇",
                      reply_markup=main_menu(msg.from_user.id))
@@ -249,7 +260,7 @@ async def set_lang(c: CallbackQuery):
 @router.callback_query(F.data == "chk")
 async def check_sub(c: CallbackQuery, bot: Bot):
     if await missing_subs(bot, c.from_user.id):
-        await c.answer("❌ Hali obuna bo'lmadingiz!", show_alert=True)
+        await c.answer("❌ Hali hamma joyga obuna bo'lmadingiz!", show_alert=True)
         return
     await c.message.delete()
     await c.message.answer("✅ Rahmat! Endi botdan to'liq foydalanishingiz mumkin.", reply_markup=main_menu(c.from_user.id))
@@ -336,7 +347,53 @@ async def contact(msg: Message, state: FSMContext):
 @router.message(F.text == BTN["ai"])
 async def ai_start(msg: Message, state: FSMContext):
     await state.set_state(Ai.chat)
-    await msg.answer("🤖 AI Yordamchi sizga yordam beradi. Savolingizni yozing.")
+    await msg.answer("🤖 AI Yordamchi sizga yordam beradi. Savolingizni yozing.\n(AI rejimidan chiqish uchun /cancel yozing)")
+
+# AI cancel
+@router.message(Command("cancel"), Ai.chat)
+async def ai_cancel(msg: Message, state: FSMContext):
+    await state.clear()
+    await msg.answer("Ajoyib, bot menyusiga qaytdingiz.", reply_markup=main_menu(msg.from_user.id))
+
+# ============================ DEBUG OBUUNA ============================
+@router.message(F.text == "🔧 Test Obuna")
+@router.message(Command("test_obuna"))
+async def test_subscription_logic(msg: Message, bot: Bot, state: FSMContext):
+    # FSM ni tozalash (AI rejimidan chiqish uchun)
+    await state.clear()
+    
+    if msg.from_user.id not in ADMINS:
+        return 
+
+    status_text = "🔧 **Obuna holatini tekshirish:**\n\n"
+    all_subscribed = True
+
+    for chat in FORCE_SUB:
+        try:
+            # Tekshirish
+            member = await bot.get_chat_member(chat_id=chat, user_id=msg.from_user.id)
+            
+            # Telegram qaytargan haqiqiy holat
+            status_returned = member.status
+            
+            # Bizning kod mantiqi bo'yicha check
+            if status_returned in ["member", "administrator", "creator"]:
+                is_sub_check = "✅ A'zo"
+            else:
+                is_sub_check = "❌ A'zo emas"
+                all_subscribed = False
+
+            status_text += f"🔹 {chat}: <code>{status_returned}</code> ({is_sub_check})\n"
+        
+        except Exception as e:
+            all_subscribed = False
+            status_text += f"🔹 {chat}: ❌ Xatolik: <code>{str(e)}</code>\n"
+
+    status_text += f"\n🏆 Yakuniy natija: "
+    status_text += "✅ Hamma joyga obuna bo'lingan" if all_subscribed else "❌ Obuna to'liq emas"
+    
+    await msg.answer(status_text)
+
 
 # ============================== KATALOG =============================
 @router.callback_query(F.data == "menu:cats")
@@ -611,6 +668,9 @@ async def adm_broadcast(msg: Message, state: FSMContext, bot: Bot):
 # ============================ AI YORDAMCHI (GEMINI) ==========================
 @router.message(Ai.chat)
 async def ai_chat(msg: Message):
+    # Bu API key faqat 2.5 dollarlik hisobingiz uchun. Gemini emas.
+    # Agar Gemini key qo'ymoqchi bo'lsangiz, keshga tushadigan URLni o'zgartiring.
+    # Hozircha Gemini ni ishga tushirish uchun Gemini key kerak.
     GEMINI_API_KEY = "AQ.Ab8RN6JwNyNSvtYRxvMxbeOfZt7rOCRd9ti923RubWVl3rMIaA"
     
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
