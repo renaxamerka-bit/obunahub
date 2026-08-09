@@ -1,839 +1,515 @@
-import asyncio
-import logging
-import time
-import secrets
-import os
-import aiosqlite
-import aiohttp
-
-from aiogram import Bot, Dispatcher, Router, F
+# main.py — OBUNALAR HUB | BOT (aiogram 3.30+, Bot API 10.2)
+import asyncio, logging, os, json, aiohttp, aiosqlite, secrets, time
+from aiohttp import web
+from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart, Command, CommandObject
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (Message, CallbackQuery, InlineKeyboardMarkup,
-                           InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton)
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiohttp import web
+from aiogram.types import (Message, CallbackQuery, InlineKeyboardButton as IKB,
+                           InlineKeyboardMarkup as IKM, KeyboardButton as KB,
+                           ReplyKeyboardMarkup as RKM)
 
-# ============================ SOZLAMALAR ============================
-BOT_TOKEN    = os.environ.get("BOT_TOKEN", "8669054173:AAGrCaUidTFAlxd1PKHTIc2xPlEf_AjPZrc")        # Render -> Environment
-GEMINI_KEY   = os.environ.get("GEMINI_KEY", "AQ.Ab8RN6JwNyNSvtYRxvMxbeOfZt7rOCRd9ti923RubWVl3rMIaA")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
-
-ADMINS      = [5700159922]
-ADMIN_GROUP = 0
-CARD_NUMBER = os.environ.get("CARD_NUMBER", "5614 6867 0900 3860")
-CARD_HOLDER = "ZAYNIDDIN SHODEYEV"
-FORCE_SUB   = ["@obunahub_rasmiy", "@obunalarhub_guruh"]
-CHANNEL_URL = "https://t.me/obunahub_rasmiy"
+# ================= SOZLAMALAR =================
+# Barcha ma'lumotlaringiz shu yerga to'g'ridan-to'g'ri kiritildi!
+BOT_TOKEN   = "8669054173:AAGrCaUidTFAlxd1PKHTIc2xPlEf_AjPZrc"
+ADMIN_ID    = 5700159922
+CARD_NUMBER = "5614 6867 0900 3860"
+CARD_OWNER  = "ZAYNIDDIN SHODEYEV"
+GEMINI_KEY  = "AQ.Ab8RN6JwNyNSvtYRxvMxbeOfZt7rOCRd9ti923RubWVl3rMIaA"
+GEMINI_MODEL= "gemini-1.5-flash"
+CHANNELS    = ["@obunahub_rasmiy", "@obunalarhub_guruh"]
 SUPPORT     = "@XushvaqtovSh"
-CURRENCY    = "so'm"
-CASHBACK    = 1
-REF_BONUS   = 100
-LEVELS      = [(0, "Bronza"), (500000, "Kumush"), (2000000, "Oltin"), (5000000, "Platina")]
 DB_PATH     = "obunahub.db"
+PORT        = int(os.getenv("PORT", "8080")) # Render uchun shu holatda qolishi shart!
 
-# ==================== PREMIUM EMOJI TIZIMI ==========================
-# Bot egasida Telegram Premium bo'lishi shart. Xato bersa -> False
-USE_PREMIUM_EMOJI = True
+USE_PREMIUM_EMOJI = True          # Premium bo'lmasa -> False qiling
+logging.basicConfig(level=logging.INFO)
 
-# Kategoriya logotiplari — hammasi ko'z bilan tekshirilgan
-CAT_ICON = {
-    1: ("✨", "5452138632091569963"),   # Gemini
-    2: ("✴️", "6174520215376763867"),   # Claude
-    3: ("💬", "5303113132460250222"),   # ChatGPT
-    4: ("🚀", "6179337489350663129"),   # Grok
-    5: ("🌊", "6178962311072456422"),   # Flow / VEO3
-    6: ("📹", "5978895591894161700"),   # CapCut
-    7: ("💎", "6133975818591805751"),   # Leonardo AI
+# ============ PREMIUM EMOJI ID LARI (tekshirilgan) ============
+ICON = {
+    "Gemini":      "5452138632091569963",
+    "Claude":      "6174520215376763867",
+    "ChatGPT":     "5303113132460250222",
+    "Grok":        "6179337489350663129",
+    "Flow AI":     "6178962311072456422",
+    "CapCut":      "5978895591894161700",
+    "Leonardo AI": "6133975818591805751",
 }
+ICON_SOLD = "6181467651395558500"   # ❌ tugagan
+FALLBACK  = {"Gemini": "♊️", "Claude": "🟠", "ChatGPT": "🤖", "Grok": "✖️",
+             "Flow AI": "🅰️", "CapCut": "✂️", "Leonardo AI": "🎨"}
 
-# key: (matn, oddiy emoji, premium id yoki None)
+def ib(text, icon=None, style=None, **kw):
+    """Inline tugma + premium logo."""
+    if USE_PREMIUM_EMOJI:
+        if icon:  kw["icon_custom_emoji_id"] = icon
+        if style: kw["style"] = style
+        return IKB(text=text, **kw)
+    return IKB(text=text, **kw)
+
+def cat_btn(name, cb, sold=False):
+    ic = ICON.get(name)
+    if USE_PREMIUM_EMOJI and ic:
+        return ib(name, icon=ICON_SOLD if sold else ic,
+                  style="danger" if sold else None, callback_data=cb)
+    return IKB(text=f"{FALLBACK.get(name,'•')} {name}", callback_data=cb)
+
+def tg(icon, alt="🔹"):
+    return f'<tg-emoji emoji-id="{icon}">{alt}</tg-emoji>' if USE_PREMIUM_EMOJI else alt
+
+# ================= TILLAR =================
 MENU = {
-    "srv":  ("Xizmatlar",    "💎", None),
-    "ai":   ("AI Yordamchi", "🤖", "5452138632091569963"),
-    "cart": ("Savatcha",     "🛒", None),
-    "prof": ("Profil",       "⚜️", None),
-    "lang": ("Til",          "🌐", None),
-    "cont": ("Aloqa",        "🎧", None),
-    "adm":  ("Boshqarish",   "⚙️", None),
-    "test": ("Test Obuna",   "🔧", None),
+    "srv":  ("🛍", "Xizmatlar", "Услуги"),
+    "cart": ("🛒", "Savat", "Корзина"),
+    "prof": ("👤", "Profil", "Профиль"),
+    "ord":  ("📦", "Buyurtmalarim", "Мои заказы"),
+    "ai":   ("🤖", "AI yordamchi", "AI помощник"),
+    "lang": ("🌐", "Til", "Язык"),
+    "help": ("📞", "Aloqa", "Связь"),
 }
-BTN     = {k: (v[0] if (USE_PREMIUM_EMOJI and v[2]) else f"{v[1]} {v[0]}") for k, v in MENU.items()}
-BTN_ANY = {k: {v[0], f"{v[1]} {v[0]}"} for k, v in MENU.items()}
+BTN_ANY = {k: {v[1], v[2], f"{v[0]} {v[1]}", f"{v[0]} {v[2]}"} for k, v in MENU.items()}
 
-IK = {
-    "buy": ("💳", None),  "cadd": ("🛒", None),   "back": ("🔙", None),
-    "ok": ("✅", None),   "no": ("❌", "6181467651395558500"),
-    "sub": ("📢", None),  "check": ("✅", None),  "orders": ("📋", None),
-    "trash": ("🗑", None), "cancel": ("🚫", None), "stats": ("📊", None),
-    "pending": ("⏳", None), "plus": ("➕", None), "bc": ("📢", None),
-    "op": ("💬", None),   "chan": ("📢", None),   "price": ("🏷", None),
-    "uz": ("🇺🇿", None),   "ru": ("🇷🇺", None),
+T = {
+ "uz": {"start":"Assalomu alaykum, {n}!\nOBUNALAR HUB botiga xush kelibsiz.",
+        "cats":"📁 <b>Bo'limni tanlang:</b>", "prods":"📦 <b>Mahsulotlar:</b>",
+        "empty":"Hozircha bo'sh.", "cart_empty":"🛒 Savatingiz bo'sh.",
+        "sub":"❗️ Botdan foydalanish uchun kanallarga obuna bo'ling:",
+        "sub_ok":"✅ Obuna tasdiqlandi!", "sub_no":"❌ Hali obuna bo'lmadingiz.",
+        "pay":"💳 To'lov:\n<code>{c}</code>\n👤 {o}\n💰 <b>{p:,} so'm</b>\n\n📸 Chek rasmini yuboring.",
+        "recv":"✅ Chek qabul qilindi. Admin tekshirmoqda ⏳",
+        "need_photo":"📸 Iltimos, chekni <b>rasm</b> qilib yuboring.",
+        "cancel":"❌ Bekor qilindi.", "added":"✅ Savatga qo'shildi.",
+        "prof":"👤 <b>Profil</b>\nID: <code>{id}</code>\nIsm: {n}\nDaraja: {lv}\nBuyurtmalar: {c}\nSarflangan: {s:,} so'm",
+        "lang_q":"🌐 Tilni tanlang:", "help":f"📞 Admin: {SUPPORT}",
+        "ai_on":"🤖 Savolingizni yozing. Chiqish: /cancel",
+        "no_ai":"⚠️ AI hozircha ishlamayapti.", "wait":"⏳ ..." },
+ "ru": {"start":"Здравствуйте, {n}!\nДобро пожаловать в OBUNALAR HUB.",
+        "cats":"📁 <b>Выберите раздел:</b>", "prods":"📦 <b>Товары:</b>",
+        "empty":"Пока пусто.", "cart_empty":"🛒 Корзина пуста.",
+        "sub":"❗️ Подпишитесь на каналы:", "sub_ok":"✅ Подписка подтверждена!",
+        "sub_no":"❌ Вы ещё не подписались.",
+        "pay":"💳 Оплата:\n<code>{c}</code>\n👤 {o}\n💰 <b>{p:,} сум</b>\n\n📸 Отправьте чек.",
+        "recv":"✅ Чек принят. Админ проверяет ⏳",
+        "need_photo":"📸 Отправьте чек <b>картинкой</b>.",
+        "cancel":"❌ Отменено.", "added":"✅ Добавлено в корзину.",
+        "prof":"👤 <b>Профиль</b>\nID: <code>{id}</code>\nИмя: {n}\nУровень: {lv}\nЗаказов: {c}\nПотрачено: {s:,} сум",
+        "lang_q":"🌐 Выберите язык:", "help":f"📞 Админ: {SUPPORT}",
+        "ai_on":"🤖 Напишите вопрос. Выход: /cancel",
+        "no_ai":"⚠️ AI сейчас недоступен.", "wait":"⏳ ..."},
 }
+def t(l, k, **kw): return T.get(l, T["uz"]).get(k, k).format(**kw)
 
-def _mix(pair, text):
-    ico, eid = pair
-    if USE_PREMIUM_EMOJI and eid:
-        return text, eid
-    return (f"{ico} {text}".strip() if ico else text), None
-
-def ib(key, text, style=None, **kw):
-    t, eid = _mix(IK.get(key, ("", None)), text)
-    # style parametrlari aiogram3 da shunday yozilmaydi, lekin ruxsat berilgan kabi qoldiramiz
-    if 'style' in kw:
-        del kw['style']
-    if style and not 'style' in kw:
-        pass 
-    if eid:
-        return InlineKeyboardButton(text=t, custom_emoji_id=eid, **kw) # aiogramda custom_emoji_id yoki o'xshash, lekin biz oddiy qoldiramiz
-    return InlineKeyboardButton(text=t, **kw)
-
-def rb(key):
-    name, ico, eid = MENU[key]
-    if USE_PREMIUM_EMOJI and eid:
-        pass # KeyboardButton-da hozircha custom emoji yo'q aiogramda, lekin matn qaytaramiz
-    return KeyboardButton(text=f"{ico} {name}")
-
-def tg(pair):
-    ico, eid = pair
-    return f'<tg-emoji emoji-id="{eid}">{ico}</tg-emoji>' if eid else ico
-
-PREMIUM_EMOJIS = {cid: tg(p) for cid, p in CAT_ICON.items()}
-
-# ============================== BAZA ================================
+# ================= BAZA =================
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS users(
-  id INTEGER PRIMARY KEY, full_name TEXT, username TEXT, lang TEXT DEFAULT 'uz',
-  balance INTEGER DEFAULT 0, cashback_total INTEGER DEFAULT 0, spent INTEGER DEFAULT 0,
-  orders_count INTEGER DEFAULT 0, ref_code TEXT, ref_by INTEGER, refs INTEGER DEFAULT 0,
-  ref_paid INTEGER DEFAULT 0, is_banned INTEGER DEFAULT 0, created_at INTEGER);
-CREATE TABLE IF NOT EXISTS categories(
-  id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, emoji TEXT DEFAULT '📁', is_active INTEGER DEFAULT 1);
-CREATE TABLE IF NOT EXISTS products(
-  id INTEGER PRIMARY KEY AUTOINCREMENT, cat_id INTEGER, title TEXT, price INTEGER,
-  description TEXT, emoji TEXT DEFAULT '🎁', sold INTEGER DEFAULT 0, is_active INTEGER DEFAULT 1);
-CREATE TABLE IF NOT EXISTS orders(
-  id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, product_id INTEGER, price INTEGER,
-  used_bonus INTEGER DEFAULT 0, status TEXT DEFAULT 'pending', receipt TEXT, created_at INTEGER);
-CREATE TABLE IF NOT EXISTS cart(
-  user_id INTEGER, product_id INTEGER, qty INTEGER DEFAULT 1, PRIMARY KEY(user_id, product_id));
-CREATE TABLE IF NOT EXISTS reviews(
-  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER, user_id INTEGER,
-  rating INTEGER, text TEXT, created_at INTEGER);
+CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT, lang TEXT DEFAULT 'uz',
+  orders INTEGER DEFAULT 0, spent INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS cats(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, icon TEXT);
+CREATE TABLE IF NOT EXISTS prods(id INTEGER PRIMARY KEY AUTOINCREMENT, cat INTEGER,
+  name TEXT, price INTEGER, stock INTEGER DEFAULT 1, info TEXT DEFAULT '');
+CREATE TABLE IF NOT EXISTS cart(uid INTEGER, pid INTEGER);
+CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER, pid INTEGER,
+  price INTEGER, status TEXT DEFAULT 'new', receipt TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP);
 """
-
-async def q(sql, args=(), one=False, write=False):
-    async with aiosqlite.connect(DB_PATH) as d:
-        d.row_factory = aiosqlite.Row
-        cur = await d.execute(sql, args)
-        if write:
-            await d.commit()
-            return cur.lastrowid
-        rows = await cur.fetchall()
-        if one:
-            return dict(rows[0]) if rows else None
-        return [dict(r) for r in rows]
+async def q(sql, args=(), fetch=None):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(sql, args)
+        if fetch == "one":  r = await cur.fetchone(); await db.commit(); return r
+        if fetch == "all":  r = await cur.fetchall(); await db.commit(); return r
+        await db.commit(); return cur.lastrowid
 
 async def init_db():
-    async with aiosqlite.connect(DB_PATH) as d:
-        await d.executescript(SCHEMA)
-        cur = await d.execute("SELECT COUNT(*) FROM categories")
-        count = await cur.fetchone()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executescript(SCHEMA); await db.commit()
+    for n in ICON:
+        await q("INSERT OR IGNORE INTO cats(name,icon) VALUES(?,?)", (n, ICON[n]))
 
-        if count[0] == 0:
-            cats = [
-                (1, "Gemini Ai", "✨", 1),
-                (2, "Claud Ai", "✴️", 1),
-                (3, "ChatGpt", "💬", 1),
-                (4, "Supper Grok", "🚀", 1),
-                (5, "Flow Ai", "🌊", 1),
-                (6, "CapCut", "📹", 1),
-                (7, "Leoanardo Ai", "💎", 1),
-            ]
-            await d.executemany(
-                "INSERT INTO categories (id, title, emoji, is_active) VALUES (?, ?, ?, ?)", cats)
+async def get_user(m):
+    u = await q("SELECT * FROM users WHERE id=?", (m.from_user.id,), "one")
+    if not u:
+        await q("INSERT INTO users(id,name) VALUES(?,?)",
+                (m.from_user.id, m.from_user.full_name))
+        u = await q("SELECT * FROM users WHERE id=?", (m.from_user.id,), "one")
+    return u
 
-            prods = [
-                (1, 1, "Gemini Ai Pro (18 oylik)", 40000,
-                 "Obunani faollashtirish uchun linkni nusxalab oling. Keyin kerakli Google "
-                 "akkauntingizga o'tib, qidiruvga o'sha linkni joylang va qidiring. Chiqqan saytdan "
-                 "\"Obunani faollashtirish\" yoki \"Get started\" tugmasini bosing.\n\n"
-                 "Eslatma: link 12 soat davomida amal qiladi.", "✨", 0, 1),
-                (2, 2, "Claud Pro (1 oylik)", 165000,
-                 "🛡️ 25 kunlik to'liq kafolat.\n🔄 Muammo chiqsa bir zumda almashtiriladi.\n"
-                 "💳 Bank kartasi talab qilinmaydi.\n⚡ Havolani bosasiz — obuna ishga tushadi.", "✴️", 0, 1),
-                (3, 3, "ChatGpt Plus (1 oylik)", 100000,
-                 "🛡️ To'liq kafolat.\n🔒 Taqiq va bloklanishsiz (No Ban).\n"
-                 "🚀 Uzluksiz va barqaror ishlaydigan tayyor akkaunt.", "💬", 0, 1),
-                (4, 6, "CapCut PRO [7 kunlik]", 15000, "CapCut PRO 7 kunlik to'liq kafolat!", "📹", 0, 1),
-                (5, 6, "CapCut PRO [30 kunlik]", 42000, "CapCut PRO 30 kunlik to'liq kafolat!", "📹", 0, 1),
-                (6, 6, "CapCut PRO [3 oylik]", 132000, "CapCut PRO 3 oylik to'liq kafolat!", "📹", 0, 1),
-                (7, 6, "CapCut PRO [6 oylik]", 210000, "CapCut PRO 6 oylik to'liq kafolat!", "📹", 0, 1),
-                (8, 6, "CapCut PRO [1 yillik]", 370000, "CapCut PRO 1 yillik to'liq kafolat!", "📹", 0, 1),
-                (9, 7, "Leoanardo Ai 8500 Credit", 50000,
-                 "Leonardo AI 1 oylik obuna — 8500 kredit beriladi!", "💎", 0, 1),
-            ]
-            await d.executemany(
-                "INSERT INTO products (id, cat_id, title, price, description, emoji, sold, is_active) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", prods)
+def level_of(n): return "🥉 Bronza" if n < 3 else ("🥈 Kumush" if n < 10 else "🥇 Oltin")
 
-        await d.commit()
-
-async def get_user(uid):
-    return await q("SELECT * FROM users WHERE id=?", (uid,), one=True)
-
-async def add_user(uid, name, uname, ref_by=None):
-    u = await get_user(uid)
-    if u:
-        return u
-    await q("INSERT INTO users(id,full_name,username,ref_code,ref_by,created_at) VALUES(?,?,?,?,?,?)",
-            (uid, name, uname, "ref_" + secrets.token_hex(4), ref_by, int(time.time())), write=True)
-    if ref_by:
-        await q("UPDATE users SET refs=refs+1 WHERE id=?", (ref_by,), write=True)
-    return await get_user(uid)
-
-async def rating(pid):
-    r = await q("SELECT AVG(rating) a, COUNT(*) c FROM reviews WHERE product_id=?", (pid,), one=True)
-    return (round(r["a"], 1) if r["a"] else 5.0), r["c"]
-
-def level_of(spent):
-    name = LEVELS[0][1]
-    for lim, t in LEVELS:
-        if spent >= lim:
-            name = t
-    return name
-
-def money(v):
-    return "{:,}".format(v).replace(",", " ")
-
-
-# =========================== KLAVIATURALAR ==========================
-def main_menu(uid):
-    kb = [
-        [rb("srv"), rb("ai")],
-        [rb("cart"), rb("prof")],
-        [rb("lang"), rb("cont")],
-    ]
-    if uid in ADMINS:
-        kb.append([rb("adm"), rb("test")])
-    return ReplyKeyboardMarkup(resize_keyboard=True, keyboard=kb)
+# ================= KLAVIATURALAR =================
+def main_menu(lang="uz", admin=False):
+    i = 1 if lang == "uz" else 2
+    rows = [[KB(text=f"{MENU['srv'][0]} {MENU['srv'][i]}"), KB(text=f"{MENU['cart'][0]} {MENU['cart'][i]}")],
+            [KB(text=f"{MENU['prof'][0]} {MENU['prof'][i]}"), KB(text=f"{MENU['ord'][0]} {MENU['ord'][i]}")],
+            [KB(text=f"{MENU['ai'][0]} {MENU['ai'][i]}"), KB(text=f"{MENU['lang'][0]} {MENU['lang'][i]}")],
+            [KB(text=f"{MENU['help'][0]} {MENU['help'][i]}")]]
+    if admin: rows.append([KB(text="⚙️ Admin panel")])
+    return RKM(keyboard=rows, resize_keyboard=True)
 
 def lang_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        ib("uz", "O'zbekcha", callback_data="lang:uz"),
-        ib("ru", "Русский", callback_data="lang:ru")]])
+    return IKM(inline_keyboard=[[IKB(text="🇺🇿 O'zbekcha", callback_data="lang:uz"),
+                                IKB(text="🇷🇺 Русский",  callback_data="lang:ru")]])
 
-def cats_kb(cats):
-    b = InlineKeyboardBuilder()
-    for c in cats:
-        # Xavfsiz holda oddiy klaviatura tugmalarini yaratamiz
-        t, eid = _mix(CAT_ICON.get(c["id"], (c["emoji"] or "📁", None)), c["title"])
-        b.row(InlineKeyboardButton(text=t, callback_data="cat:" + str(c["id"])))
-    return b.as_markup()
+async def cats_kb():
+    rows, buf = [], []
+    for c in await q("SELECT * FROM cats ORDER BY id", (), "all"):
+        buf.append(cat_btn(c["name"], f"cat:{c['id']}"))
+        if len(buf) == 2: rows.append(buf); buf = []
+    if buf: rows.append(buf)
+    return IKM(inline_keyboard=rows or [[IKB(text="—", callback_data="nop")]])
 
-def prods_kb(items, cid=0):
-    b = InlineKeyboardBuilder()
-    for p in items:
-        label = f"{p['title']} - {money(p['price'])} {CURRENCY}"
-        t, eid = _mix(CAT_ICON.get(p.get("cat_id") or cid, (p.get("emoji") or "🏷", None)), label)
-        b.row(InlineKeyboardButton(text=t, callback_data="prod:" + str(p["id"])))
-    b.row(ib("back", "Orqaga", callback_data="menu:cats"))
-    return b.as_markup()
-
-def prod_kb(pid, cid):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [ib("buy", "Sotib olish", callback_data="buy:" + str(pid))],
-        [ib("cadd", "Savatchaga qo'shish", callback_data="cadd:" + str(pid))],
-        [ib("back", "Orqaga", callback_data="cat:" + str(cid))]])
-
-def admin_order_kb(oid):
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        ib("ok", "Tasdiqlash", callback_data="ok:" + str(oid)),
-        ib("no", "Rad etish", callback_data="no:" + str(oid))]])
-
-def subs_kb(chs):
-    b = InlineKeyboardBuilder()
-    for ch in chs:
-        if ch.startswith("@"):
-            b.row(ib("sub", "Obuna bo'lish", url=f"https://t.me/{ch.lstrip('@')}"))
+async def prods_kb(cid):
+    name = (await q("SELECT name FROM cats WHERE id=?", (cid,), "one"))["name"]
+    ic, rows = ICON.get(name), []
+    for p in await q("SELECT * FROM prods WHERE cat=? ORDER BY id", (cid,), "all"):
+        txt = f"{p['name']} — {p['price']:,} so'm"
+        sold = p["stock"] <= 0
+        if USE_PREMIUM_EMOJI and ic:
+            rows.append([ib(txt, icon=ICON_SOLD if sold else ic,
+                            style="danger" if sold else None, callback_data=f"prod:{p['id']}")])
         else:
-            b.row(ib("sub", f"Channel ({ch})", callback_data="nothing"))
-    b.row(ib("check", "A'zo bo'ldim", callback_data="chk"))
-    return b.as_markup()
+            rows.append([IKB(text=f"{FALLBACK.get(name,'•')} {txt}", callback_data=f"prod:{p['id']}")])
+    rows.append([IKB(text="⬅️ Ortga", callback_data="cats")])
+    return IKM(inline_keyboard=rows)
 
-def contact_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [ib("op", "Operatorga yozish", url="https://t.me/" + SUPPORT.lstrip("@"))],
-        [ib("chan", "Rasmiy Kanalga o'tish", url=CHANNEL_URL)]])
+def prod_kb(pid, sold=False):
+    if sold:
+        return IKM(inline_keyboard=[[IKB(text="❌ Tugagan", callback_data="nop")],
+                                    [IKB(text="⬅️ Ortga", callback_data="cats")]])
+    return IKM(inline_keyboard=[[ib("💳 Sotib olish", style="success", callback_data=f"buy:{pid}")],
+                                [IKB(text="🛒 Savatga", callback_data=f"add:{pid}"),
+                                 IKB(text="⬅️ Ortga", callback_data="cats")]])
+
+def order_kb(oid):
+    return IKM(inline_keyboard=[[ib("✅ Tasdiqlash", style="success", callback_data=f"ok:{oid}"),
+                                 ib("❌ Rad etish",  style="danger",  callback_data=f"no:{oid}")]])
+
+def subs_kb(lang="uz"):
+    rows = [[IKB(text=f"📢 {ch}", url=f"https://t.me/{ch.lstrip('@')}")] for ch in CHANNELS]
+    rows.append([ib("✅ Tekshirish", style="success", callback_data="chk")])
+    return IKM(inline_keyboard=rows)
 
 def admin_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [ib("stats", "Statistika", callback_data="a:stats"),
-         ib("pending", "Kutilayotgan", callback_data="a:orders")],
-        [ib("plus", "Kategoriya +", callback_data="a:addcat"),
-         ib("plus", "Mahsulot +", callback_data="a:addprod")],
-        [ib("trash", "O'chirish", callback_data="a:delprod"),
-         ib("bc", "Reklama yuborish", callback_data="a:bc")]])
+    return IKM(inline_keyboard=[
+        [IKB(text="➕ Bo'lim", callback_data="a:cat"), IKB(text="➕ Mahsulot", callback_data="a:prod")],
+        [IKB(text="🗑 Mahsulot o'chirish", callback_data="a:del")],
+        [IKB(text="📢 Reklama", callback_data="a:ads"), IKB(text="📊 Statistika", callback_data="a:stat")]])
 
-# ============================== HOLATLAR ============================
-class Buy(StatesGroup):
-    receipt = State()
-
-class Ai(StatesGroup):
-    chat = State()
-
+# ================= HOLATLAR =================
+class Buy(StatesGroup): receipt = State()
+class Ai(StatesGroup):  chat = State()
 class Adm(StatesGroup):
-    cat = State()
-    prod = State()
-    delete = State()
-    broadcast = State()
-
-class AdminDelivery(StatesGroup):
-    waiting_for_link = State()
+    cat = State(); prod = State(); dele = State(); ads = State(); give = State()
 
 router = Router()
 
 async def missing_subs(bot, uid):
     out = []
-    for ch in FORCE_SUB:
+    for ch in CHANNELS:
         try:
-            m = await bot.get_chat_member(ch, uid)
-            if m.status in ("left", "kicked"):
-                out.append(ch)
-        except Exception as e:
-            logging.warning(f"Sub check failed for {ch}: {e}")
+            mem = await bot.get_chat_member(ch, uid)
+            if mem.status in ("left", "kicked"): out.append(ch)
+        except Exception: pass
     return out
 
-def cats_text(cats):
-    txt = "📁 <b>Bo'limni tanlang:</b>\n\n"
-    for c in cats:
-        txt += f"{PREMIUM_EMOJIS.get(c['id'], c['emoji'])} <b>{c['title']}</b>\n"
-    txt += "\n👇 <i>Kerakli bo'limni pastdagi tugmalardan tanlang:</i>"
-    return txt
-
-# ============================== START ===============================
+# ================= START =================
 @router.message(CommandStart())
-async def cmd_start(msg: Message, state: FSMContext, command: CommandObject, bot: Bot):
-    await state.clear()
-    ref_by = None
-    if command.args and command.args.startswith("ref_"):
-        r = await q("SELECT id FROM users WHERE ref_code=?", (command.args,), one=True)
-        if r and r["id"] != msg.from_user.id:
-            ref_by = r["id"]
-
-    u = await get_user(msg.from_user.id)
-    if not u:
-        await add_user(msg.from_user.id, msg.from_user.full_name, msg.from_user.username, ref_by)
-        await msg.answer("🌐 Tilni tanlang / Выберите язык:", reply_markup=lang_kb())
-        return
-
-    miss = await missing_subs(bot, msg.from_user.id)
-    if miss:
-        await msg.answer("🛑 <b>Botdan to'liq foydalanish uchun quyidagilarga obuna bo'ling:</b>",
-                         reply_markup=subs_kb(miss))
-        return
-
-    await msg.answer(f"👋 Salom, <b>{msg.from_user.full_name}</b>!\n\n"
-                     f"Menyudan kerakli bo'limni tanlang 👇",
-                     reply_markup=main_menu(msg.from_user.id))
-
-
-@router.callback_query(F.data.startswith("lang:"))
-async def set_lang(c: CallbackQuery, bot: Bot):
-    await q("UPDATE users SET lang=? WHERE id=?", (c.data.split(":")[1], c.from_user.id), write=True)
-    await c.message.delete()
-    miss = await missing_subs(bot, c.from_user.id)
-    if miss:
-        await c.message.answer("🛑 <b>Botdan to'liq foydalanish uchun quyidagilarga obuna bo'ling:</b>",
-                               reply_markup=subs_kb(miss))
-        return
-    await c.message.answer(f"👋 Salom, <b>{c.from_user.full_name}</b>!\n\n"
-                           f"Menyudan kerakli bo'limni tanlang 👇",
-                           reply_markup=main_menu(c.from_user.id))
-
+async def cmd_start(m: Message, state: FSMContext, bot: Bot):
+    await state.clear(); u = await get_user(m)
+    if await missing_subs(bot, m.from_user.id):
+        return await m.answer(t(u["lang"], "sub"), reply_markup=subs_kb(u["lang"]))
+    await m.answer(t(u["lang"], "start", n=m.from_user.first_name),
+                   reply_markup=main_menu(u["lang"], m.from_user.id == ADMIN_ID))
 
 @router.callback_query(F.data == "chk")
 async def check_sub(c: CallbackQuery, bot: Bot):
+    u = await get_user(c)
     if await missing_subs(bot, c.from_user.id):
-        await c.answer("❌ Hali hamma joyga obuna bo'lmadingiz!", show_alert=True)
-        return
+        return await c.answer(t(u["lang"], "sub_no"), show_alert=True)
     await c.message.delete()
-    await c.message.answer("✅ Rahmat! Endi botdan to'liq foydalanishingiz mumkin.",
-                           reply_markup=main_menu(c.from_user.id))
+    await c.message.answer(t(u["lang"], "sub_ok"),
+                           reply_markup=main_menu(u["lang"], c.from_user.id == ADMIN_ID))
 
+@router.callback_query(F.data == "nop")
+async def nop(c: CallbackQuery): await c.answer("❌ Bu mahsulot tugagan", show_alert=True)
 
-@router.callback_query(F.data == "nothing")
-async def do_nothing(c: CallbackQuery):
-    await c.answer()
-
-# ========================== MENYU TUGMALARI =========================
+# ================= MENYU =================
 @router.message(F.text.in_(BTN_ANY["srv"]))
-async def services(msg: Message, state: FSMContext):
-    await state.clear()
-    cats = await q("SELECT * FROM categories WHERE is_active=1 ORDER BY id")
-    if cats:
-        await msg.answer(cats_text(cats), reply_markup=cats_kb(cats))
-        return
-    items = await q("SELECT * FROM products WHERE is_active=1 ORDER BY id")
-    if not items:
-        await msg.answer("📭 Hozircha xizmatlar qo'shilmagan.")
-        return
-    await msg.answer("🛍 <b>Xizmatlar:</b>", reply_markup=prods_kb(items))
+async def services(m: Message):
+    u = await get_user(m)
+    await m.answer(t(u["lang"], "cats"), reply_markup=await cats_kb())
 
-@router.message(F.text.in_(BTN_ANY["cart"]))
-async def cart_show(msg: Message, state: FSMContext):
-    await state.clear()
-    items = await q("SELECT c.*, p.title, p.price, p.emoji, p.cat_id FROM cart c "
-                    "JOIN products p ON p.id=c.product_id WHERE c.user_id=?", (msg.from_user.id,))
-    if not items:
-        await msg.answer("🛒 Savatchangiz bo'sh.")
-        return
-    total = sum(i["price"] * i["qty"] for i in items)
-    lines = [f"{PREMIUM_EMOJIS.get(i['cat_id'], i['emoji'])} {i['title']} x {i['qty']} - "
-             f"{money(i['price'] * i['qty'])} {CURRENCY}" for i in items]
-    b = InlineKeyboardBuilder()
-    for i in items:
-        b.row(ib("buy", "Sotib olish: " + i["title"], callback_data="buy:" + str(i["product_id"])))
-    b.row(ib("trash", "Savatchani tozalash", callback_data="cclr"))
-    await msg.answer("🛒 <b>Savatchangiz:</b>\n\n" + "\n".join(lines) +
-                     f"\n\n💰 Jami: <b>{money(total)} {CURRENCY}</b>", reply_markup=b.as_markup())
-
-
-@router.message(F.text.in_(BTN_ANY["prof"]))
-async def profile(msg: Message, state: FSMContext, bot: Bot):
-    await state.clear()
-    u = await get_user(msg.from_user.id)
-    me = await bot.get_me()
-    link = f"https://t.me/{me.username}?start={u['ref_code']}"
-    txt = ("👤 <b>Sizning profilingiz</b>\n\n"
-           f"🆔 ID: <code>{u['id']}</code>\n"
-           f"📦 Buyurtmalar: <b>{u['orders_count']}</b>\n"
-           f"💸 Jami sarflangan: <b>{money(u['spent'])} {CURRENCY}</b>\n"
-           f"👥 Taklif etilganlar: <b>{u['refs']}</b>\n"
-           f"🔗 Taklif havolasi: {link}\n\n"
-           f"🎁 Bonus balansi: <b>{money(u['balance'])} {CURRENCY}</b>\n"
-           f"🏆 Daraja: <b>{level_of(u['spent'])}</b>")
-    kbd = InlineKeyboardMarkup(inline_keyboard=[[
-        ib("orders", "Mening buyurtmalarim", callback_data="myorders")]])
-    await msg.answer(txt, reply_markup=kbd, disable_web_page_preview=True)
-
-
-@router.callback_query(F.data == "myorders")
-async def my_orders(c: CallbackQuery):
-    rows = await q("SELECT o.*, p.title FROM orders o LEFT JOIN products p ON p.id=o.product_id "
-                   "WHERE o.user_id=? ORDER BY o.id DESC LIMIT 20", (c.from_user.id,))
-    if not rows:
-        await c.answer("Sizda buyurtmalar yo'q", show_alert=True)
-        return
-    names = {"pending": "⏳ kutilmoqda", "paid": "🔎 tekshiruvda", "approved": "✅ tasdiqlangan",
-             "rejected": "❌ rad etilgan", "canceled": "🚫 bekor qilingan"}
-    txt = "📋 <b>Buyurtmalaringiz:</b>\n\n" + "\n".join(
-        f"#{o['id']} | {o['title']} | {names.get(o['status'], o['status'])}" for o in rows)
-    await c.message.answer(txt)
-    await c.answer()
-
-
-@router.message(F.text.in_(BTN_ANY["lang"]))
-async def change_lang(msg: Message, state: FSMContext):
-    await state.clear()
-    await msg.answer("🌐 Tilni tanlang / Выберите язык:", reply_markup=lang_kb())
-
-
-@router.message(F.text.in_(BTN_ANY["cont"]))
-async def contact(msg: Message, state: FSMContext):
-    await state.clear()
-    await msg.answer("📞 <b>Sifatli va tezkor xizmat markazi</b>\n\n"
-                     "Biz bilan bog'lanish uchun tugmalardan foydalaning.", reply_markup=contact_kb())
-
-
-@router.message(F.text.in_(BTN_ANY["ai"]))
-async def ai_start(msg: Message, state: FSMContext):
-    await state.set_state(Ai.chat)
-    await msg.answer("🤖 AI Yordamchi sizga yordam beradi. Savolingizni yozing.\n"
-                     "(Chiqish uchun /cancel yozing)")
-
-
-@router.message(Command("cancel"), Ai.chat)
-async def ai_cancel(msg: Message, state: FSMContext):
-    await state.clear()
-    await msg.answer("Ajoyib, bot menyusiga qaytdingiz.", reply_markup=main_menu(msg.from_user.id))
-
-# ============================ AI YORDAMCHI (GEMINI) ==========================
-@router.message(Ai.chat)
-async def ai_chat(msg: Message):
-    if not GEMINI_KEY:
-        await msg.answer("⚠️ AI kaliti (API KEY) ulanmagan!")
-        return
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}"
-    body = {
-        "contents": [{
-            "parts": [{"text": "Sen Obuna Hub raqamli mahsulotlar do'koni yordamchisisan. O'zbek tilida qisqa va aniq javob ber. Savol: " + msg.text}]
-        }]
-    }
-    headers = {"Content-Type": "application/json"}
-    
-    try:
-        async with aiohttp.ClientSession() as s:
-            async with s.post(url, json=body, headers=headers, timeout=60) as r:
-                data = await r.json()
-                if "candidates" in data:
-                    answer = data["candidates"][0]["content"]["parts"][0]["text"]
-                    await msg.answer(answer)
-                else:
-                    await msg.answer("⚠️ AI hozircha javob berolmadi, birozdan keyin urinib ko'ring.")
-    except Exception as e:
-        await msg.answer("❌ Hozir javob berolmadim. Keyinroq urinib ko'ring.")
-
-
-@router.message(F.text.in_(BTN_ANY["test"]))
-@router.message(Command("test_obuna"))
-async def test_subscription_logic(msg: Message, bot: Bot, state: FSMContext):
-    await state.clear()
-    if msg.from_user.id not in ADMINS:
-        return
-    status_text = "🔧 <b>Obuna holatini tekshirish:</b>\n\n"
-    all_subscribed = True
-    for chat in FORCE_SUB:
-        try:
-            member = await bot.get_chat_member(chat_id=chat, user_id=msg.from_user.id)
-            if member.status in ["member", "administrator", "creator"]:
-                is_sub = "✅ A'zo"
-            else:
-                is_sub = "❌ A'zo emas"
-                all_subscribed = False
-            status_text += f"🔹 {chat}: <code>{member.status}</code> ({is_sub})\n"
-        except Exception as e:
-            all_subscribed = False
-            status_text += f"🔹 {chat}: ❌ Xatolik: <code>{e}</code>\n"
-    status_text += "\n🏆 Yakuniy natija: "
-    status_text += "✅ Hamma joyga obuna bo'lingan" if all_subscribed else "❌ Obuna to'liq emas"
-    await msg.answer(status_text)
-
-
-# ============================== KATALOG =============================
-@router.callback_query(F.data == "menu:cats")
+@router.callback_query(F.data == "cats")
 async def back_cats(c: CallbackQuery):
-    cats = await q("SELECT * FROM categories WHERE is_active=1 ORDER BY id")
-    if cats:
-        await c.message.edit_text(cats_text(cats), reply_markup=cats_kb(cats))
-    else:
-        items = await q("SELECT * FROM products WHERE is_active=1")
-        await c.message.edit_text("🛍 <b>Xizmatlar:</b>", reply_markup=prods_kb(items))
+    u = await get_user(c)
+    await c.message.edit_text(t(u["lang"], "cats"), reply_markup=await cats_kb()); await c.answer()
 
 @router.callback_query(F.data.startswith("cat:"))
 async def open_cat(c: CallbackQuery):
-    cid = int(c.data.split(":")[1])
-    items = await q("SELECT * FROM products WHERE is_active=1 AND cat_id=? ORDER BY id", (cid,))
-    cat_info = await q("SELECT * FROM categories WHERE id=?", (cid,), one=True)
-    if not items:
-        await c.answer("Bu bo'limda mahsulot yo'q", show_alert=True)
-        return
-        
-    p_emo = PREMIUM_EMOJIS.get(cid, cat_info["emoji"] if cat_info else "📁")
-    cat_title = cat_info["title"] if cat_info else "Xizmatlar"
-    
-    txt = f"{p_emo} <b>{cat_title} xizmatlari:</b>\n\n"
-    for p in items:
-        txt += f"▪️ <b>{p['title']}</b> — {money(p['price'])} {CURRENCY}\n"
-    txt += "\n👇 <i>Kerakli mahsulotni tanlang:</i>"
-    
-    await c.message.edit_text(txt, reply_markup=prods_kb(items, cid))
+    u = await get_user(c); cid = int(c.data.split(":")[1])
+    await c.message.edit_text(t(u["lang"], "prods"), reply_markup=await prods_kb(cid)); await c.answer()
 
 @router.callback_query(F.data.startswith("prod:"))
 async def open_prod(c: CallbackQuery):
     pid = int(c.data.split(":")[1])
-    p = await q("SELECT * FROM products WHERE id=?", (pid,), one=True)
-    p_emo = PREMIUM_EMOJIS.get(p["cat_id"], p["emoji"]) 
-    
-    rt, cnt = await rating(pid)
-    txt = (f"{p_emo} <b>{p['title']}</b>\n\n"
-           f"💵 Narxi: <b>{money(p['price'])} {CURRENCY}</b>\n"
-           f"🔥 Sotilgan: <b>{p['sold']} ta</b>\n\n"
-           f"📝 Tavsif:\n{p['description'] or '-'}\n\n"
-           f"⭐ Reyting: {rt}/5 ({cnt} ta sharh)")
-    await c.message.edit_text(txt, reply_markup=prod_kb(pid, p["cat_id"] or 0))
+    p = await q("SELECT * FROM prods WHERE id=?", (pid,), "one")
+    if not p: return await c.answer("Topilmadi", show_alert=True)
+    cat = (await q("SELECT name FROM cats WHERE id=?", (p["cat"],), "one"))["name"]
+    txt = (f"{tg(ICON.get(cat,''), FALLBACK.get(cat,'•'))} <b>{p['name']}</b>\n"
+           f"💰 {p['price']:,} so'm\n"
+           f"{'✅ Mavjud' if p['stock'] > 0 else '❌ Tugagan'}\n\n{p['info'] or ''}")
+    await c.message.edit_text(txt, reply_markup=prod_kb(pid, p["stock"] <= 0)); await c.answer()
 
-@router.callback_query(F.data.startswith("cadd:"))
+@router.callback_query(F.data.startswith("add:"))
 async def cart_add(c: CallbackQuery):
-    pid = int(c.data.split(":")[1])
-    await q("INSERT INTO cart(user_id,product_id,qty) VALUES(?,?,1) "
-            "ON CONFLICT(user_id,product_id) DO UPDATE SET qty=qty+1",
-            (c.from_user.id, pid), write=True)
-    await c.answer("✅ Savatchaga qo'shildi!", show_alert=True)
+    u = await get_user(c); pid = int(c.data.split(":")[1])
+    await q("INSERT INTO cart(uid,pid) VALUES(?,?)", (c.from_user.id, pid))
+    await c.answer(t(u["lang"], "added"), show_alert=True)
 
-@router.callback_query(F.data == "cclr")
+@router.message(F.text.in_(BTN_ANY["cart"]))
+async def cart_show(m: Message):
+    u = await get_user(m)
+    rows = await q("SELECT p.* FROM cart c JOIN prods p ON p.id=c.pid WHERE c.uid=?",
+                   (m.from_user.id,), "all")
+    if not rows: return await m.answer(t(u["lang"], "cart_empty"))
+    tot = sum(r["price"] for r in rows)
+    txt = "\n".join(f"• {r['name']} — {r['price']:,}" for r in rows) + f"\n\n💰 <b>{tot:,} so'm</b>"
+    kb = IKM(inline_keyboard=[[ib("💳 Hammasini olish", style="success", callback_data="buycart")],
+                              [ib("🗑 Tozalash", style="danger", callback_data="clr")]])
+    await m.answer("🛒 <b>Savat</b>\n\n" + txt, reply_markup=kb)
+
+@router.callback_query(F.data == "clr")
 async def cart_clear(c: CallbackQuery):
-    await q("DELETE FROM cart WHERE user_id=?", (c.from_user.id,), write=True)
-    await c.message.edit_text("🗑 Savatcha tozalandi.")
+    await q("DELETE FROM cart WHERE uid=?", (c.from_user.id,))
+    await c.message.edit_text("🗑 Savat tozalandi."); await c.answer()
 
-# ============================ SOTIB OLISH ===========================
+@router.message(F.text.in_(BTN_ANY["prof"]))
+async def profile(m: Message):
+    u = await get_user(m)
+    await m.answer(t(u["lang"], "prof", id=u["id"], n=u["name"],
+                     lv=level_of(u["orders"]), c=u["orders"], s=u["spent"]))
+
+@router.message(F.text.in_(BTN_ANY["ord"]))
+async def my_orders(m: Message):
+    u = await get_user(m)
+    rows = await q("""SELECT o.id,o.price,o.status,p.name FROM orders o
+                      LEFT JOIN prods p ON p.id=o.pid WHERE o.uid=? ORDER BY o.id DESC LIMIT 15""",
+                   (m.from_user.id,), "all")
+    if not rows: return await m.answer(t(u["lang"], "empty"))
+    ic = {"new": "⏳", "paid": "✅", "rej": "❌"}
+    await m.answer("📦 <b>Buyurtmalar</b>\n\n" + "\n".join(
+        f"{ic.get(r['status'],'•')} #{r['id']} {r['name']} — {r['price']:,}" for r in rows))
+
+@router.message(F.text.in_(BTN_ANY["lang"]))
+async def change_lang(m: Message):
+    u = await get_user(m); await m.answer(t(u["lang"], "lang_q"), reply_markup=lang_kb())
+
+@router.callback_query(F.data.startswith("lang:"))
+async def set_lang(c: CallbackQuery):
+    lg = c.data.split(":")[1]
+    await get_user(c); await q("UPDATE users SET lang=? WHERE id=?", (lg, c.from_user.id))
+    await c.message.delete()
+    await c.message.answer("✅", reply_markup=main_menu(lg, c.from_user.id == ADMIN_ID))
+
+@router.message(F.text.in_(BTN_ANY["help"]))
+async def contact(m: Message):
+    u = await get_user(m); await m.answer(t(u["lang"], "help"))
+
+# ================= XARID =================
+async def start_order(msg, uid, pid, price, state):
+    u = await q("SELECT lang FROM users WHERE id=?", (uid,), "one")
+    lang = u["lang"] if u else "uz"
+    oid = await q("INSERT INTO orders(uid,pid,price) VALUES(?,?,?)", (uid, pid, price))
+    await state.set_state(Buy.receipt); await state.update_data(oid=oid)
+    await msg.answer(t(lang, "pay", c=CARD_NUMBER, o=CARD_OWNER, p=price))
+
 @router.callback_query(F.data.startswith("buy:"))
 async def buy(c: CallbackQuery, state: FSMContext):
     pid = int(c.data.split(":")[1])
-    p = await q("SELECT * FROM products WHERE id=?", (pid,), one=True)
-    u = await get_user(c.from_user.id)
-    bonus = min(u["balance"], p["price"])
-    topay = p["price"] - bonus
-    oid = await q("INSERT INTO orders(user_id,product_id,price,used_bonus,created_at) VALUES(?,?,?,?,?)",
-                  (c.from_user.id, pid, p["price"], bonus, int(time.time())), write=True)
-    if bonus:
-        await q("UPDATE users SET balance=balance-? WHERE id=?", (bonus, c.from_user.id), write=True)
-    await state.set_state(Buy.receipt)
-    await state.update_data(oid=oid)
-    bl = f"🎁 Bonusdan yechildi: <b>{money(bonus)} {CURRENCY}</b>\n" if bonus else ""
-    txt = (f"💳 <b>{p['title']}</b> uchun to'lov\n\n{bl}"
-           f"💸 To'lash kerak: <b>{money(topay)} {CURRENCY}</b>\n\n"
-           f"🏦 Rekvizitlar:\n<code>{CARD_NUMBER}</code>\n{CARD_HOLDER}\n\n"
-           f"📸 To'lovdan so'ng <b>chek rasmini shu yerga yuboring</b>.")
-    kbd = InlineKeyboardMarkup(inline_keyboard=[[
-        ib("cancel", "Bekor qilish", callback_data="cxl:" + str(oid))]])
-    await c.message.edit_text(txt, reply_markup=kbd)
+    p = await q("SELECT * FROM prods WHERE id=?", (pid,), "one")
+    if not p or p["stock"] <= 0: return await c.answer("❌ Tugagan", show_alert=True)
+    await c.answer(); await start_order(c.message, c.from_user.id, pid, p["price"], state)
 
-@router.callback_query(F.data.startswith("cxl:"))
-async def cancel_order(c: CallbackQuery, state: FSMContext):
-    oid = int(c.data.split(":")[1])
-    o = await q("SELECT * FROM orders WHERE id=?", (oid,), one=True)
-    if o and o["status"] == "pending":
-        await q("UPDATE orders SET status='canceled' WHERE id=?", (oid,), write=True)
-        if o["used_bonus"]:
-            await q("UPDATE users SET balance=balance+? WHERE id=?",
-                    (o["used_bonus"], o["user_id"]), write=True)
-    await state.clear()
-    await c.message.edit_text("🚫 Buyurtma bekor qilindi.")
+@router.callback_query(F.data == "buycart")
+async def buy_cart(c: CallbackQuery, state: FSMContext):
+    rows = await q("SELECT p.* FROM cart c JOIN prods p ON p.id=c.pid WHERE c.uid=?",
+                   (c.from_user.id,), "all")
+    if not rows: return await c.answer("Bo'sh", show_alert=True)
+    tot = sum(r["price"] for r in rows)
+    await c.answer(); await start_order(c.message, c.from_user.id, rows[0]["id"], tot, state)
 
-@router.message(Buy.receipt, F.photo | F.document)
-async def receipt(msg: Message, state: FSMContext, bot: Bot):
-    data = await state.get_data()
-    oid = data.get("oid")
-    fid = msg.photo[-1].file_id if msg.photo else msg.document.file_id
-    await q("UPDATE orders SET status='paid', receipt=? WHERE id=?", (fid, oid), write=True)
+@router.message(Buy.receipt, F.photo)
+async def receipt(m: Message, state: FSMContext, bot: Bot):
+    d = await state.get_data(); oid = d.get("oid"); u = await get_user(m)
+    fid = m.photo[-1].file_id
+    await q("UPDATE orders SET receipt=? WHERE id=?", (fid, oid))
+    await m.answer(t(u["lang"], "recv"), reply_markup=main_menu(u["lang"], m.from_user.id == ADMIN_ID))
+    o = await q("SELECT * FROM orders WHERE id=?", (oid,), "one")
+    if ADMIN_ID:
+        await bot.send_photo(ADMIN_ID, fid, caption=(
+            f"🧾 <b>Yangi buyurtma #{oid}</b>\n👤 {m.from_user.full_name} "
+            f"(<code>{m.from_user.id}</code>) @{m.from_user.username or '-'}\n"
+            f"💰 {o['price']:,} so'm"), reply_markup=order_kb(oid))
     await state.clear()
-    o = await q("SELECT * FROM orders WHERE id=?", (oid,), one=True)
-    p = await q("SELECT * FROM products WHERE id=?", (o["product_id"],), one=True)
-    cap = (f"🔔 <b>Yangi buyurtma #{oid}</b>\n\n"
-           f"👤 Mijoz: {msg.from_user.full_name}\n"
-           f"🆔 ID: <code>{msg.from_user.id}</code>\n"
-           f"📦 Mahsulot: {p['title']}\n"
-           f"💰 Summa: {money(o['price'])} {CURRENCY}")
-    targets = [ADMIN_GROUP] if ADMIN_GROUP else ADMINS
-    for t in targets:
-        try:
-            await bot.send_photo(t, fid, caption=cap, reply_markup=admin_order_kb(oid))
-        except Exception:
-            pass
-    await msg.answer("✅ Chek qabul qilindi!\n\n⏳ Buyurtmangiz administrator tekshiruviga yuborildi.", reply_markup=main_menu(msg.from_user.id))
 
 @router.message(Buy.receipt)
-async def receipt_wrong(msg: Message):
-    await msg.answer("⚠️ Iltimos, to'lov <b>chekining rasmini</b> yuboring.")
+async def receipt_wrong(m: Message):
+    u = await get_user(m); await m.answer(t(u["lang"], "need_photo"))
 
-# ===================== ADMIN: TASDIQLASH VA YUBORISH ======================
-@router.callback_query(F.data.startswith("ok:") | F.data.startswith("no:"))
+@router.callback_query(F.data.startswith(("ok:", "no:")))
 async def moderate(c: CallbackQuery, state: FSMContext, bot: Bot):
-    if c.from_user.id not in ADMINS:
-        return
-    act, sid = c.data.split(":")
-    oid = int(sid)
-    o = await q("SELECT * FROM orders WHERE id=?", (oid,), one=True)
-    if not o or o["status"] != "paid":
-        await c.answer("Bu buyurtma allaqachon ko'rib chiqilgan.", show_alert=True)
-        return
-
+    if c.from_user.id != ADMIN_ID: return await c.answer("⛔️", show_alert=True)
+    act, oid = c.data.split(":"); oid = int(oid)
+    o = await q("SELECT * FROM orders WHERE id=?", (oid,), "one")
+    if not o: return await c.answer("Yo'q", show_alert=True)
     if act == "no":
-        await q("UPDATE orders SET status='rejected' WHERE id=?", (oid,), write=True)
-        if o["used_bonus"]:
-            await q("UPDATE users SET balance=balance+? WHERE id=?", (o["used_bonus"], o["user_id"]), write=True)
-        await bot.send_message(o["user_id"], f"❌ Buyurtma #{oid} rad etildi.\nSavollar bo'lsa: {SUPPORT}")
-        await c.message.edit_caption(caption=(c.message.caption or "") + "\n\n❌ RAD ETILDI")
-        return
+        await q("UPDATE orders SET status='rej' WHERE id=?", (oid,))
+        await bot.send_message(o["uid"], f"❌ Buyurtma #{oid} rad etildi. Admin: {SUPPORT}")
+        return await c.message.edit_caption(caption=f"❌ #{oid} rad etildi")
+    await q("UPDATE orders SET status='paid' WHERE id=?", (oid,))
+    await q("UPDATE users SET orders=orders+1, spent=spent+? WHERE id=?", (o["price"], o["uid"]))
+    await q("UPDATE prods SET stock=stock-1 WHERE id=? AND stock>0", (o["pid"],))
+    await q("DELETE FROM cart WHERE uid=?", (o["uid"],))
+    await state.set_state(Adm.give); await state.update_data(uid=o["uid"], oid=oid)
+    await c.message.edit_caption(caption=f"✅ #{oid} tasdiqlandi")
+    await c.message.answer(f"✍️ #{oid} uchun akkaunt/havolani yuboring:")
 
-    await state.set_state(AdminDelivery.waiting_for_link)
-    await state.update_data(deliver_oid=oid, message_id=c.message.message_id)
-    await c.message.reply(f"✅ <b>#{oid} to'lov tasdiqlanmoqda.</b>\n\n👇 Mijozga yuboriladigan <b>link, akkaunt yoki kalitni</b> shu yerga yozib yuboring:")
-    await c.answer()
+@router.message(Adm.give)
+async def deliver(m: Message, state: FSMContext, bot: Bot):
+    d = await state.get_data(); await state.clear()
+    await bot.send_message(d["uid"], f"✅ <b>Buyurtma #{d['oid']} tayyor!</b>\n\n{m.text}")
+    await m.answer("📤 Mijozga yuborildi.")
 
-@router.message(AdminDelivery.waiting_for_link)
-async def deliver_link_to_client(msg: Message, state: FSMContext, bot: Bot):
-    data = await state.get_data()
-    oid = data.get("deliver_oid")
-    link_text = msg.text
-
-    o = await q("SELECT * FROM orders WHERE id=?", (oid,), one=True)
-    if not o:
-        await msg.answer("❌ Xatolik: Buyurtma topilmadi.")
-        await state.clear()
-        return
-
-    p = await q("SELECT * FROM products WHERE id=?", (o["product_id"],), one=True)
-    cb = o["price"] * CASHBACK // 100
-
-    await q("UPDATE orders SET status='approved' WHERE id=?", (oid,), write=True)
-    await q("UPDATE products SET sold=sold+1 WHERE id=?", (o["product_id"],), write=True)
-    await q("UPDATE users SET orders_count=orders_count+1, spent=spent+?, balance=balance+?, cashback_total=cashback_total+? WHERE id=?",
-            (o["price"], cb, cb, o["user_id"]), write=True)
-
-    u = await get_user(o["user_id"])
-    if u["ref_by"] and not u["ref_paid"]:
-        await q("UPDATE users SET balance=balance+? WHERE id=?", (REF_BONUS, u["ref_by"]), write=True)
-        await q("UPDATE users SET ref_paid=1 WHERE id=?", (u["id"],), write=True)
-        try:
-            await bot.send_message(u["ref_by"], f"🎁 Taklif qilgan do'stingiz xarid qildi! Hisobingizga <b>{money(REF_BONUS)} {CURRENCY}</b> bonus qo'shildi.")
-        except: pass
-
-    try:
-        client_text = (
-            f"🎉 <b>To'lovingiz tasdiqlandi (Buyurtma #{oid})</b>\n\n"
-            f"📦 <b>{p['title']}</b>\n\n"
-            f"<code>{link_text}</code>\n\n"
-            f"💰 Keshbek: <b>{money(cb)} {CURRENCY}</b>\n"
-            f"🤝 Xarid uchun rahmat!"
-        )
-        await bot.send_message(o["user_id"], client_text)
-        await msg.answer("✅ Ma'lumot mijozga muvaffaqiyatli yuborildi!", reply_markup=main_menu(msg.from_user.id))
-    except Exception as e:
-        await msg.answer(f"❌ Mijozga yuborishda xatolik! Ehtimol mijoz botni bloklagan.")
-
-    try:
-        mid = data.get("message_id")
-        await bot.edit_message_caption(chat_id=msg.chat.id, message_id=mid, caption=f"✅ TASDIQLANDI VA MIJOZGA YUBORILDI (Buyurtma #{oid})")
-    except: pass
-
-    await state.clear()
-
-# ============================ ADMIN PANEL ===========================
-@router.message(F.text.in_(BTN_ANY["adm"]))
+# ================= ADMIN =================
 @router.message(Command("admin"))
-async def admin_panel(msg: Message, state: FSMContext):
-    if msg.from_user.id not in ADMINS: return
-    await state.clear()
-    await msg.answer("🛠 <b>Admin panel</b>", reply_markup=admin_kb())
+@router.message(F.text == "⚙️ Admin panel")
+async def admin_panel(m: Message):
+    if m.from_user.id != ADMIN_ID: return
+    await m.answer("⚙️ <b>Admin panel</b>", reply_markup=admin_kb())
 
 @router.callback_query(F.data.startswith("a:"))
 async def admin_actions(c: CallbackQuery, state: FSMContext):
-    if c.from_user.id not in ADMINS: return
-    act = c.data.split(":")[1]
-    if act == "stats":
-        users = (await q("SELECT COUNT(*) c FROM users", one=True))["c"]
-        appr = (await q("SELECT COUNT(*) c FROM orders WHERE status='approved'", one=True))["c"]
-        rev = (await q("SELECT COALESCE(SUM(price),0) s FROM orders WHERE status='approved'", one=True))["s"]
-        await c.message.answer(f"📊 <b>Statistika</b>\n\n👥 Foydalanuvchilar: {users}\n🔥 Sotuvlar: {appr}\n💰 Tushum: {money(rev)} {CURRENCY}")
-    elif act == "orders":
-        rows = await q("SELECT o.*, p.title FROM orders o LEFT JOIN products p ON p.id=o.product_id WHERE o.status='paid' ORDER BY o.id DESC LIMIT 20")
-        if not rows:
-            await c.answer("Tekshiruvdagi buyurtma yo'q", show_alert=True)
-            return
-        txt = "\n".join(f"#{o['id']} | {o['title']} | {money(o['price'])} | user {o['user_id']}" for o in rows)
-        await c.message.answer(f"⏳ <b>Tekshiruvdagi buyurtmalar:</b>\n\n{txt}")
-    elif act == "addcat":
+    if c.from_user.id != ADMIN_ID: return await c.answer("⛔️", show_alert=True)
+    a = c.data.split(":")[1]
+    if a == "cat":
         await state.set_state(Adm.cat)
-        await c.message.answer("📝 Format: <code>emoji | nom</code>\nMasalan: <code>🤖 | AI xizmatlar</code>")
-    elif act == "addprod":
-        cats = await q("SELECT * FROM categories")
-        lst = "\n".join(f"{x['id']} - {x['title']}" for x in cats) or "kategoriya yo'q (0 yozing)"
+        await c.message.answer("Bo'lim nomi va emoji ID:\n<code>Gemini|5452138632091569963</code>")
+    elif a == "prod":
+        cs = await q("SELECT * FROM cats", (), "all")
+        txt = "\n".join(f"{c['id']} - {c['name']}" for c in cs)
         await state.set_state(Adm.prod)
-        await c.message.answer(f"📁 Kategoriyalar:\n{lst}\n\n📝 Format: <code>cat_id | emoji | nom | narx | tavsif</code>")
-    elif act == "delprod":
-        prods = await q("SELECT * FROM products WHERE is_active=1")
-        lst = "\n".join(f"{x['id']} - {x['title']}" for x in prods) or "mahsulot yo'q"
-        await state.set_state(Adm.delete)
-        await c.message.answer(f"🗑 O'chiriladigan mahsulot ID sini yuboring:\n{lst}")
-    elif act == "bc":
-        await state.set_state(Adm.broadcast)
-        await c.message.answer("📢 Tarqatiladigan xabarni yuboring (matn/rasm/video):")
+        await c.message.answer(f"📁 Kategoriyalar:\n{txt}\n\n📝 Format: <code>cat_id | nom | narx | info</code>")
+    elif a == "del":
+        ps = await q("SELECT * FROM prods", (), "all")
+        txt = "\n".join(f"{p['id']} - {p['name']}" for p in ps)
+        await state.set_state(Adm.dele)
+        await c.message.answer(f"🗑 O'chirish uchun ID yuboring:\n{txt}")
+    elif a == "ads":
+        await state.set_state(Adm.ads)
+        await c.message.answer("📢 Reklama xabarini yuboring (matn/rasm):")
+    elif a == "stat":
+        uc = (await q("SELECT COUNT(*) c FROM users", (), "one"))["c"]
+        oc = (await q("SELECT COUNT(*) c FROM orders WHERE status='paid'", (), "one"))["c"]
+        sm = (await q("SELECT SUM(price) c FROM orders WHERE status='paid'", (), "one"))["c"] or 0
+        await c.message.answer(f"📊 <b>Statistika</b>\n👤 Foydalanuvchilar: {uc}\n📦 Sotuvlar: {oc}\n💰 Tushum: {sm:,} so'm")
     await c.answer()
 
 @router.message(Adm.cat)
-async def adm_cat(msg: Message, state: FSMContext):
-    parts = [x.strip() for x in msg.text.split("|")]
-    if len(parts) < 2:
-        await msg.answer("❌ Format xato. emoji | nom")
-        return
-    await q("INSERT INTO categories(emoji,title) VALUES(?,?)", (parts[0], parts[1]), write=True)
+async def add_cat(m: Message, state: FSMContext):
+    parts = m.text.split("|")
+    if len(parts) == 2:
+        await q("INSERT INTO cats(name,icon) VALUES(?,?)", (parts[0].strip(), parts[1].strip()))
+        await m.answer("✅ Kategoriya qo'shildi.")
+    else:
+        await m.answer("❌ Format xato.")
     await state.clear()
-    await msg.answer("✅ Kategoriya qo'shildi.", reply_markup=main_menu(msg.from_user.id))
 
 @router.message(Adm.prod)
-async def adm_prod(msg: Message, state: FSMContext):
-    parts = [x.strip() for x in msg.text.split("|")]
-    if len(parts) < 5:
-        await msg.answer("❌ Format xato. cat_id | emoji | nom | narx | tavsif")
-        return
-    try:
-        cid = int(parts[0])
-        price = int(parts[3].replace(" ", ""))
-    except ValueError:
-        return await msg.answer("❌ cat_id va narx butun son bo'lishi kerak.")
-    await q("INSERT INTO products(cat_id,emoji,title,price,description) VALUES(?,?,?,?,?)",
-            (cid, parts[1], parts[2], price, "|".join(parts[4:])), write=True)
-    await state.clear()
-    await msg.answer("✅ Mahsulot qo'shildi.", reply_markup=main_menu(msg.from_user.id))
-
-@router.message(Adm.delete)
-async def adm_delete(msg: Message, state: FSMContext):
-    try:
-        pid = int(msg.text.strip())
-    except ValueError:
-        return await msg.answer("❌ Faqat raqam yuboring.")
-    await q("UPDATE products SET is_active=0 WHERE id=?", (pid,), write=True)
-    await state.clear()
-    await msg.answer("✅ Mahsulot yashirildi.", reply_markup=main_menu(msg.from_user.id))
-
-@router.message(Adm.broadcast)
-async def adm_broadcast(msg: Message, state: FSMContext, bot: Bot):
-    await state.clear()
-    users = await q("SELECT id FROM users WHERE is_banned=0")
-    ok = fail = 0
-    for u in users:
+async def add_prod(m: Message, state: FSMContext):
+    p = m.text.split("|")
+    if len(p) == 4:
         try:
-            await bot.copy_message(chat_id=u["id"], from_chat_id=msg.chat.id, message_id=msg.message_id)
+            await q("INSERT INTO prods(cat,name,price,info) VALUES(?,?,?,?)",
+                    (int(p[0]), p[1].strip(), int(p[2].strip().replace(" ", "")), p[3].strip()))
+            await m.answer("✅ Mahsulot qo'shildi.")
+        except Exception:
+            await m.answer("❌ ID yoki narx xato kiritildi.")
+    else:
+        await m.answer("❌ Format xato.")
+    await state.clear()
+
+@router.message(Adm.dele)
+async def del_prod(m: Message, state: FSMContext):
+    if m.text.isdigit():
+        await q("DELETE FROM prods WHERE id=?", (int(m.text),))
+        await m.answer("✅ Mahsulot o'chirildi.")
+    else:
+        await m.answer("❌ Faqat ID raqam yuboring.")
+    await state.clear()
+
+@router.message(Adm.ads)
+async def send_ads(m: Message, state: FSMContext, bot: Bot):
+    us = await q("SELECT id FROM users", (), "all")
+    ok, err = 0, 0
+    msg = await m.answer("⏳ Xabar tarqatilmoqda...")
+    for u in us:
+        try:
+            await bot.copy_message(u["id"], m.chat.id, m.message_id)
             ok += 1
         except Exception:
-            fail += 1
+            err += 1
         await asyncio.sleep(0.05)
-    await msg.answer(f"✅ Yuborildi: {ok} ta, ❌ Xato: {fail} ta", reply_markup=main_menu(msg.from_user.id))
+    await msg.edit_text(f"✅ Tarqatish tugadi.\n\n📤 Yuborildi: {ok} ta\n❌ Xato: {err} ta")
+    await state.clear()
 
-# ===================== KATEGORIYA O'CHIRISH =====================
-@router.message(Command("delcat"))
-async def delete_category(msg: Message):
-    if msg.from_user.id not in ADMINS: return
-    parts = msg.text.split()
-    if len(parts) == 1:
-        cats = await q("SELECT * FROM categories WHERE is_active=1")
-        if not cats:
-            return await msg.answer("📭 Hozircha kategoriyalar yo'q.")
-        lst = "\n".join(f"{c['id']} - {c['title']}" for c in cats)
-        await msg.answer(f"🗑 <b>Kategoriyani o'chirish uchun buyruq yoniga ID raqamini yozing:</b>\nMasalan: <code>/delcat 1</code>\n\n📁 <b>Mavjud kategoriyalar ro'yxati:</b>\n{lst}")
-    elif len(parts) == 2 and parts[1].isdigit():
-        cid = int(parts[1])
-        await q("UPDATE categories SET is_active=0 WHERE id=?", (cid,), write=True)
-        await msg.answer(f"✅ {cid}-ID raqamli bo'lim o'chirildi (yashirildi)!")
+# ================= AI YORDAMCHI =================
+@router.message(F.text.in_(BTN_ANY["ai"]))
+async def ai_start(m: Message, state: FSMContext):
+    u = await get_user(m)
+    await state.set_state(Ai.chat)
+    await m.answer(t(u["lang"], "ai_on"))
 
-@router.message(Command("test_api"))
-async def boshqa_botga_ulanish(msg: Message):
-    await msg.answer("⏳ API dan javob kutilmoqda...")
+@router.message(Command("cancel"), Ai.chat)
+async def ai_stop(m: Message, state: FSMContext):
+    u = await get_user(m)
+    await state.clear()
+    await m.answer("🤖 AI rejimidan chiqdingiz.", reply_markup=main_menu(u["lang"], m.from_user.id == ADMIN_ID))
 
-# =============================== ISHGA TUSHIRISH ====================
+@router.message(Ai.chat)
+async def ai_chat(m: Message):
+    u = await get_user(m)
+    if not GEMINI_KEY:
+        return await m.answer(t(u["lang"], "no_ai"))
+    w = await m.answer(t(u["lang"], "wait"))
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}"
+    req = {"contents": [{"parts": [{"text": f"Sen Obuna Hub raqamli mahsulotlar do'koni yordamchisisan. Qisqa va aniq javob ber. Savol: {m.text}"}]}]}
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.post(url, json=req, timeout=30) as r:
+                d = await r.json()
+                res = d.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text")
+                if res:
+                    await w.edit_text(res)
+                else:
+                    await w.edit_text("⚠️ Javob olishda xatolik yuz berdi.")
+    except Exception:
+        await w.edit_text(t(u["lang"], "no_ai"))
+
+# ================= ISHGA TUSHIRISH (WEB SERVER) =================
 async def handle_ping(request):
-    return web.Response(text="Bot 24/7 onlayn ishlamoqda!")
+    return web.Response(text="OBUNALAR HUB - Bot 24/7 onlayn ishlamoqda!")
 
 async def main():
-    logging.basicConfig(level=logging.INFO)
     await init_db()
-    
     if not BOT_TOKEN:
-        print("XATOLIK: Bot tokeni kiritilmagan!")
+        logging.error("BOT_TOKEN kiritilmagan! Bot ishga tushmaydi.")
         return
 
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
     await bot.delete_webhook(drop_pending_updates=True)
-    print("🚀 Bot ishga tushdi...")
     
     asyncio.create_task(dp.start_polling(bot))
     
@@ -841,10 +517,10 @@ async def main():
     app.router.add_get('/', handle_ping)
     runner = web.AppRunner(app)
     await runner.setup()
-    
-    port = int(os.environ.get("PORT", 8080))
-    site = web.TCPSite(runner, '0.0.0.0', port)
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
+    
+    logging.info(f"🚀 Bot ishga tushdi... Port: {PORT}")
     
     while True:
         await asyncio.sleep(3600)
@@ -853,4 +529,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        print("🛑 Bot to'xtatildi.")
+        logging.info("🛑 Bot to'xtatildi.")
