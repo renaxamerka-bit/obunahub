@@ -210,14 +210,16 @@ def subs_kb(lang="uz"):
 
 def admin_kb():
     return IKM(inline_keyboard=[
-        [IKB(text="➕ Bo'lim", callback_data="a:cat"), IKB(text="➕ Mahsulot", callback_data="a:prod")],
-        [IKB(text="🗑 Mahsulot o'chirish", callback_data="a:del")],
-        [IKB(text="📢 Reklama", callback_data="a:ads"), IKB(text="📊 Statistika", callback_data="a:stat")]])
-
+        [IKB(text="📊 To'liq Analitika", callback_data="a:stat")],
+        [IKB(text="➕ Bo'lim qo'shish", callback_data="a:cat"), IKB(text="✏️ Bo'lim tahrirlash", callback_data="a:editcat")],
+        [IKB(text="➕ Mahsulot qo'shish", callback_data="a:prod"), IKB(text="✏️ Mahsulot tahrirlash", callback_data="a:editprod")],
+        [IKB(text="🗑 Bo'lim o'chirish", callback_data="a:delcat"), IKB(text="🗑 Mahsulot o'chirish", callback_data="a:del")],
+        [IKB(text="📢 Reklama yuborish", callback_data="a:ads")]])
 # ================= HOLATLAR =================
 class Buy(StatesGroup): receipt = State()
-class Ai(StatesGroup):  chat = State()
 class Adm(StatesGroup):
+    cat = State(); prod = State(); dele = State(); ads = State(); give = State()
+    editcat = State(); editprod = State(); delcat = State()
     cat = State(); prod = State(); dele = State(); ads = State(); give = State()
 
 router = Router()
@@ -480,39 +482,6 @@ async def send_ads(m: Message, state: FSMContext, bot: Bot):
         await asyncio.sleep(0.05)
     await msg.edit_text(f"✅ Tarqatish tugadi.\n\n📤 Yuborildi: {ok} ta\n❌ Xato: {err} ta")
     await state.clear()
-
-# ================= AI YORDAMCHI =================
-@router.message(F.text.in_(BTN_ANY["ai"]))
-async def ai_start(m: Message, state: FSMContext):
-    u = await get_user(m)
-    await state.set_state(Ai.chat)
-    await m.answer(t(u["lang"], "ai_on"))
-
-@router.message(Command("cancel"), Ai.chat)
-async def ai_stop(m: Message, state: FSMContext):
-    u = await get_user(m)
-    await state.clear()
-    await m.answer("🤖 AI rejimidan chiqdingiz.", reply_markup=main_menu(u["lang"], m.from_user.id == ADMIN_ID))
-
-@router.message(Ai.chat)
-async def ai_chat(m: Message):
-    u = await get_user(m)
-    if not GEMINI_KEY:
-        return await m.answer(t(u["lang"], "no_ai"))
-    w = await m.answer(t(u["lang"], "wait"))
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}"
-    req = {"contents": [{"parts": [{"text": f"Sen Obuna Hub raqamli mahsulotlar do'koni yordamchisisan. Qisqa va aniq javob ber. Savol: {m.text}"}]}]}
-    try:
-        async with aiohttp.ClientSession() as s:
-            async with s.post(url, json=req, timeout=30) as r:
-                d = await r.json()
-                res = d.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text")
-                if res:
-                    await w.edit_text(res)
-                else:
-                    await w.edit_text("⚠️ Javob olishda xatolik yuz berdi.")
-    except Exception:
-        await w.edit_text(t(u["lang"], "no_ai"))
 
 # ================= ISHGA TUSHIRISH (WEB SERVER) =================
 async def handle_ping(request):
