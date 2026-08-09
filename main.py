@@ -249,14 +249,20 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject, bot
         return
     await msg.answer("👋 Salom, <b>" + msg.from_user.full_name + "</b>!\n\nMenyudan kerakli bo'limni tanlang 👇",
                      reply_markup=main_menu(msg.from_user.id))
-
 @router.callback_query(F.data.startswith("lang:"))
-async def set_lang(c: CallbackQuery):
+async def set_lang(c: CallbackQuery, bot: Bot):
     await q("UPDATE users SET lang=? WHERE id=?", (c.data.split(":")[1], c.from_user.id), write=True)
     await c.message.delete()
+    
+    # Yangi qism: Til tanlangach, darhol majburiy obunani tekshirish
+    miss = await missing_subs(bot, c.from_user.id)
+    if miss:
+        await c.message.answer("🛑 <b>Botdan to'liq foydalanish uchun quyidagilarga obuna bo'lishingiz shart:</b>", reply_markup=subs_kb(miss))
+        return
+        
+    # Agar obuna bo'lgan bo'lsa yoki obuna talab qilinmasa, menyuni ochish
     await c.message.answer("👋 Salom, <b>" + c.from_user.full_name + "</b>!\n\nMenyudan kerakli bo'limni tanlang 👇",
                            reply_markup=main_menu(c.from_user.id))
-
 @router.callback_query(F.data == "chk")
 async def check_sub(c: CallbackQuery, bot: Bot):
     if await missing_subs(bot, c.from_user.id):
