@@ -31,9 +31,6 @@ CASHBACK    = 1
 REF_BONUS   = 100
 LEVELS      = [(0, "Bronza"), (500000, "Kumush"), (2000000, "Oltin"), (5000000, "Platina")]
 DB_PATH     = "obunahub.db"
-AI_API_KEY  = os.getenv("AI_API_KEY", "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")
-AI_API_URL  = "https://api.openai.com/v1/chat/completions"
-AI_MODEL    = "gpt-4o-mini"
 
 # ============================== BAZA ================================
 SCHEMA = """
@@ -72,6 +69,36 @@ async def q(sql, args=(), one=False, write=False):
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as d:
         await d.executescript(SCHEMA)
+        
+        # Baza bo'sh bo'lsa, ma'lumotlarni avtomatik to'ldirish (Render o'chib yonsa ham yo'qolmaydi)
+        cur = await d.execute("SELECT COUNT(*) FROM categories")
+        count = await cur.fetchone()
+        
+        if count[0] == 0:
+            cats = [
+                (1, "Gemini Ai", "🤖", 1),
+                (2, "Claud Ai", "✴️", 1),
+                (3, "ChatGpt", "💬", 1),
+                (4, "Supper Grok", "🚀", 1),
+                (5, "Flow Ai", "🌊", 1),
+                (6, "CapCut", "📹", 1),
+                (7, "Leoanardo Ai", "💎", 1)
+            ]
+            await d.executemany("INSERT INTO categories (id, title, emoji, is_active) VALUES (?, ?, ?, ?)", cats)
+            
+            prods = [
+                (1, 1, "Gemini Ai Pro(18 oylik)", 40000, "Obunani faollashtirish uchun linkni nusxalab oling. Keyin o'zingizga kerakli bo'lgan Google akkauntingizga o'tib, qidiruvga o'sha nusxalangan linkni joylang va qidiruvni bosing. So'ngra chiqqan saytdan \"Obunani faollashtirish\" yoki \"Get started\" tugmasini bosib, obunani o'z akkauntingizda faollashtirishingiz mumkin!\n\nEslatma: Ushbu link 12 soat davomida amal qiladi", "🤖", 0, 1),
+                (2, 2, "Claud Pro (1 Oylik)", 165000, "🛡️ 25 kunlik to'liq kafolat: Xarid jarayonidan so'ng 25 kun davomida kafolat amal qiladi.\n 🔄 Kafolatlangan almashtirish: Agar obunada biror muammo chiqsa yoki faolsizlanib qolsa, o'rniga bir zumda yangisi taqdim etiladi.\n 💳 Bank kartasi shart emas: Linkni faollashtirish uchun Visa/Mastercard yoki boshqa bank kartalari ma'lumotlarini kiritish umuman talab qilinmaydi.\n ⚡ Oson faollashtirish: Havolani bosasiz va bir nechta soniyada obuna akkauntingizda ishga tushadi.", "✴️", 0, 1),
+                (3, 3, "ChatGpt Plus (1 oylik)", 100000, "🛡️ To'liq kafolat: Akkaunt barqaror va kafolatlangan holda taqdim etiladi.\n 🔒 Taqiq va bloklanishsiz (No Ban): Akkauntdan foydalanish jarayonida muammolar yoki deaktivatsiya xavfi bo'lmaydi.\n 🚀 Maksimal barqarorlik: Har doim uzluksiz, tez va barqaror ishlaydigan tayyor akkaunt (Stable Account).", "💬", 0, 1),
+                (4, 6, "CapCut PRO [7 kunlik]", 15000, "CapCut PRO obunasi 7 kunlik To'liq Garantiya!", "📹", 0, 1),
+                (5, 6, "CapCut PRO [30 kunlik]", 42000, "CapCut PRO obunasi 30 kunlik To'liq Garantiya!", "📹", 0, 1),
+                (6, 6, "CapCut PRO [3 oyliik]", 132000, "CapCut PRO obunasi 3 oylik To'liq Garantiya!", "📹", 0, 1),
+                (7, 6, "CapCut PRO [6 oyliik]", 210000, "CapCut PRO obunasi 6 oylik To'liq Garantiya!", "📹", 0, 1),
+                (8, 6, "CapCut PRO [1 yillik]", 370000, "CapCut PRO obunasi 1 yillik  To'liq Garantiya!", "📹", 0, 1),
+                (9, 7, "Leoanardo Ai 8500 Cridet", 50000, "Leoanardo Ai 1 oylik obuna sizga 8500 cridet beriladi!", "💎", 0, 1)
+            ]
+            await d.executemany("INSERT INTO products (id, cat_id, title, price, description, emoji, sold, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", prods)
+            
         await d.commit()
 
 async def get_user(uid):
@@ -100,7 +127,6 @@ def money(v):
     return "{:,}".format(v).replace(",", " ")
 
 # =========================== KLAVIATURALAR ==========================
-# EMOJILAR QO'SHILGAN ASOSIY TUGMALAR
 BTN = {"srv": "🛍 Xizmatlar", "ai": "🤖 AI Yordamchi", "cart": "🛒 Savatcha",
        "prof": "👤 Profil", "lang": "🌐 Til", "cont": "📞 Aloqa"}
 
@@ -431,7 +457,6 @@ async def moderate(c: CallbackQuery, state: FSMContext, bot: Bot):
         await c.answer("Bu buyurtma allaqachon ko'rib chiqilgan.", show_alert=True)
         return
 
-    # Agar Rad etish bosilgan bo'lsa
     if act == "no":
         await q("UPDATE orders SET status='rejected' WHERE id=?", (oid,), write=True)
         if o["used_bonus"]:
@@ -440,7 +465,6 @@ async def moderate(c: CallbackQuery, state: FSMContext, bot: Bot):
         await c.message.edit_caption(caption=(c.message.caption or "") + "\n\n❌ RAD ETILDI")
         return
 
-    # Agar Tasdiqlash bosilgan bo'lsa, admidan linkni kutish
     await state.set_state(AdminDelivery.waiting_for_link)
     await state.update_data(deliver_oid=oid, message_id=c.message.message_id)
     await c.message.reply(f"✅ <b>#{oid} to'lov tasdiqlanmoqda.</b>\n\n👇 Mijozga yuboriladigan <b>link, akkaunt yoki kalitni</b> shu yerga yozib yuboring:")
@@ -461,13 +485,11 @@ async def deliver_link_to_client(msg: Message, state: FSMContext, bot: Bot):
     p = await q("SELECT * FROM products WHERE id=?", (o["product_id"],), one=True)
     cb = o["price"] * CASHBACK // 100
 
-    # Bazani yangilash
     await q("UPDATE orders SET status='approved' WHERE id=?", (oid,), write=True)
     await q("UPDATE products SET sold=sold+1 WHERE id=?", (o["product_id"],), write=True)
     await q("UPDATE users SET orders_count=orders_count+1, spent=spent+?, balance=balance+?, cashback_total=cashback_total+? WHERE id=?",
             (o["price"], cb, cb, o["user_id"]), write=True)
 
-    # Referal bonusi
     u = await get_user(o["user_id"])
     if u["ref_by"] and not u["ref_paid"]:
         await q("UPDATE users SET balance=balance+? WHERE id=?", (REF_BONUS, u["ref_by"]), write=True)
@@ -476,7 +498,6 @@ async def deliver_link_to_client(msg: Message, state: FSMContext, bot: Bot):
             await bot.send_message(u["ref_by"], f"🎁 Taklif qilgan do'stingiz xarid qildi! Hisobingizga <b>{money(REF_BONUS)} {CURRENCY}</b> bonus qo'shildi.")
         except: pass
 
-    # Mijozga yuborish
     try:
         client_text = (
             f"🎉 <b>To'lovingiz tasdiqlandi (Buyurtma #{oid})</b>\n\n"
@@ -490,14 +511,12 @@ async def deliver_link_to_client(msg: Message, state: FSMContext, bot: Bot):
     except Exception as e:
         await msg.answer(f"❌ Mijozga yuborishda xatolik! Ehtimol mijoz botni bloklagan.")
 
-    # Admin xabaridagi (rasmdagi) holatni yangilash
     try:
         mid = data.get("message_id")
         await bot.edit_message_caption(chat_id=msg.chat.id, message_id=mid, caption=f"✅ TASDIQLANDI VA MIJOZGA YUBORILDI (Buyurtma #{oid})")
     except: pass
 
     await state.clear()
-
 
 # ============================ ADMIN PANEL ===========================
 @router.message(F.text == "⚙️ Boshqarish")
@@ -590,6 +609,7 @@ async def adm_broadcast(msg: Message, state: FSMContext, bot: Bot):
             fail += 1
         await asyncio.sleep(0.05)
     await msg.answer(f"✅ Yuborildi: {ok} ta, ❌ Xato: {fail} ta", reply_markup=main_menu(msg.from_user.id))
+
 # ============================ AI YORDAMCHI (GEMINI) ==========================
 @router.message(Ai.chat)
 async def ai_chat(msg: Message):
@@ -614,6 +634,7 @@ async def ai_chat(msg: Message):
                     await msg.answer("⚠️ AI hozircha javob berolmadi, birozdan keyin urinib ko'ring.")
     except Exception as e:
         await msg.answer("❌ Hozir javob berolmadim. Keyinroq urinib ko'ring.")
+
 # ===================== KATEGORIYA O'CHIRISH =====================
 @router.message(Command("delcat"))
 async def delete_category(msg: Message):
