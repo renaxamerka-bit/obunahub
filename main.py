@@ -661,6 +661,19 @@ async def delete_category(msg: Message):
         cid = int(parts[1])
         await q("UPDATE categories SET is_active=0 WHERE id=?", (cid,), write=True)
         await msg.answer(f"✅ {cid}-ID raqamli bo'lim o'chirildi (yashirildi)!")
+      # ... (Sizdagi oldingi kodlar, AI yordamchi va hokazo) ...
+
+# YANGI API KODINGIZ SHU YERGA TUSHADI 👇
+@router.message(Command("test_api"))
+async def boshqa_botga_ulanish(msg: Message):
+    # API ga ulanish amallari...
+    await msg.answer("API dan javob kutilmoqda...")
+
+# =============================== 🚀 ISHGA TUSHIRISH ====================
+from aiohttp import web
+
+async def handle_ping(request):
+# ... (qolgan ishga tushirish kodlari) ...
 # =============================== ISHGA TUSHIRISH ====================
 from aiohttp import web
 
