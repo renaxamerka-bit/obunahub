@@ -32,16 +32,78 @@ REF_BONUS   = 100
 LEVELS      = [(0, "Bronza"), (500000, "Kumush"), (2000000, "Oltin"), (5000000, "Platina")]
 DB_PATH     = "obunahub.db"
 
-# ==================== PREMIUM EMOJILAR LUG'ATI ======================
-PREMIUM_EMOJIS = {
-    1: '<tg-emoji emoji-id="5452138632091569963">🤖</tg-emoji>', # Gemini
-    2: '✴️', # Claude 
-    3: '<tg-emoji emoji-id="5303113132460250222">💬</tg-emoji>', # ChatGPT
-    4: '<tg-emoji emoji-id="6174520215376763867">🚀</tg-emoji>', # Grok
-    5: '🌊', # Flow Ai 
-    6: '<tg-emoji emoji-id="5978895591894161700">📹</tg-emoji>', # Capcut
-    7: '<tg-emoji emoji-id="6133975818591805751">💎</tg-emoji>'  # Leonardo
+# ==================== CLAUDE PREMIUM EMOJI TIZIMI ==========================
+USE_PREMIUM_EMOJI = True   # Matnlarda premium emojilardan foydalanish uchun
+
+# key: (matn, oddiy emoji, premium emoji id)
+MENU = {
+    "srv":  ("Xizmatlar",    "💎", "5796182602176007916"),
+    "ai":   ("AI Yordamchi", "🚀", "6174520215376763867"),
+    "cart": ("Savatcha",     "🛒", "5312361253610475399"),
+    "prof": ("Profil",       "⚜️", "5290020594673266043"),
+    "lang": ("Til",          "🌐", "5318911503938634641"),
+    "cont": ("Aloqa",        "🎧", "5460795800101594035"),
+    "adm":  ("Boshqarish",   "⚙️", "5456140674028019486"),
+    "test": ("Test Obuna",   "🔧", "5825794181183836432"),
 }
+# Knopka nomlarini ushlab olish uchun (foydalanuvchi qaysi emojida bossa ham ushlaydi)
+BTN_ANY = {k: {v[0], f"{v[1]} {v[0]}"} for k, v in MENU.items()}
+
+# Inline tugmalar uchun ikonkalar: (fallback, premium_id)
+IK = {
+    "buy":     ("💳", "5409048419211682843"),
+    "cadd":    ("🛒", "5312361253610475399"),
+    "back":    ("🔙", "6113945650196388135"),
+    "ok":      ("✅", "6088893844693195262"),
+    "no":      ("❌", "6181467651395558500"),
+    "sub":     ("📢", "5460795800101594035"),
+    "check":   ("✅", "5825794181183836432"),
+    "orders":  ("📋", "5422536330213088080"),
+    "trash":   ("🗑", "6181467651395558500"),
+    "cancel":  ("🚫", "6181467651395558500"),
+    "stats":   ("📊", "5438379498200391294"),
+    "pending": ("⏳", "5260491539167073671"),
+    "plus":    ("➕", "5393194986252542669"),
+    "bc":      ("📢", "5215668908278686541"),
+    "op":      ("💬", "5417915203100613993"),
+    "chan":    ("📢", "5461151367559141950"),
+    "price":   ("🏷", "5821240446403223107"),
+    "uz":      ("🇺🇿", None),
+    "ru":      ("🇷🇺", None),
+}
+
+# Kategoriya ikonkalari 
+CAT_ICON = {
+    1: ("🤖", "5452138632091569963"),   # Gemini
+    2: ("✴️", "5794295402136081349"),   # Claude
+    3: ("💬", "5303113132460250222"),   # ChatGPT
+    4: ("🚀", "6174520215376763867"),   # Grok
+    5: ("🌊", "5224607267797606837"),   # Flow Ai
+    6: ("📹", "5978895591894161700"),   # CapCut
+    7: ("💎", "6133975818591805751"),   # Leonardo
+}
+
+def _mix(pair, text):
+    ico, eid = pair
+    # Telegram API hozircha knopkalar ichiga premium emoji qo'yishga ruxsat bermaydi, shuning uchun xavfsiz standartni qaytaramiz
+    return f"{ico} {text}".strip() if ico else text
+
+def ib(key, text, **kw):
+    """inline tugma + xavfsiz ikonka (crash oldi olingan)"""
+    t = _mix(IK.get(key, ("", None)), text)
+    return InlineKeyboardButton(text=t, **kw)
+
+def rb(key):
+    """pastdagi menyu tugmasi + xavfsiz ikonka"""
+    name, ico, eid = MENU[key]
+    return KeyboardButton(text=f"{ico} {name}")
+
+def tg(pair):
+    ico, eid = pair
+    return f'<tg-emoji emoji-id="{eid}">{ico}</tg-emoji>' if (eid and USE_PREMIUM_EMOJI) else ico
+
+# Matnlar uchun tayyorlangan premium emojilar
+PREMIUM_EMOJIS = {cid: tg(p) for cid, p in CAT_ICON.items()}
 
 # ============================== BAZA ================================
 SCHEMA = """
@@ -80,7 +142,6 @@ async def q(sql, args=(), one=False, write=False):
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as d:
         await d.executescript(SCHEMA)
-        
         cur = await d.execute("SELECT COUNT(*) FROM categories")
         count = await cur.fetchone()
         
@@ -137,29 +198,20 @@ def money(v):
     return "{:,}".format(v).replace(",", " ")
 
 # =========================== KLAVIATURALAR ==========================
-BTN = {
-    "srv": "💎 Xizmatlar", 
-    "ai": "🚀 AI Yordamchi", 
-    "cart": "🛒 Savatcha",
-    "prof": "⚜️ Profil", 
-    "lang": "🌐 Til", 
-    "cont": "🎧 Aloqa"
-}
-
 def main_menu(uid):
     kb = [
-        [KeyboardButton(text=BTN["srv"]),  KeyboardButton(text=BTN["ai"])],
-        [KeyboardButton(text=BTN["cart"]), KeyboardButton(text=BTN["prof"])],
-        [KeyboardButton(text=BTN["lang"]), KeyboardButton(text=BTN["cont"])]
+        [rb("srv"),  rb("ai")],
+        [rb("cart"), rb("prof")],
+        [rb("lang"), rb("cont")]
     ]
     if uid in ADMINS:
-        kb.append([KeyboardButton(text="⚙️ Boshqarish"), KeyboardButton(text="🔧 Test Obuna")])
+        kb.append([rb("adm"), rb("test")])
     return ReplyKeyboardMarkup(resize_keyboard=True, keyboard=kb)
 
 def lang_kb():
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="🇺🇿 O'zbekcha", callback_data="lang:uz"),
-        InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")]])
+        ib("uz", "O'zbekcha", callback_data="lang:uz"),
+        ib("ru", "Русский", callback_data="lang:ru")]])
 
 def cats_kb(cats):
     b = InlineKeyboardBuilder()
@@ -172,19 +224,19 @@ def prods_kb(items, cid=0):
     for p in items:
         label = f"{p['title']} - {money(p['price'])} {CURRENCY}"
         b.row(InlineKeyboardButton(text=label, callback_data="prod:" + str(p["id"])))
-    b.row(InlineKeyboardButton(text="🔙 Orqaga", callback_data="menu:cats"))
+    b.row(ib("back", "Orqaga", callback_data="menu:cats"))
     return b.as_markup()
 
 def prod_kb(pid, cid):
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Sotib olish", callback_data="buy:" + str(pid))],
-        [InlineKeyboardButton(text="🛒 Savatchaga qo'shish", callback_data="cadd:" + str(pid))],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="cat:" + str(cid))]])
+        [ib("buy", "Sotib olish", callback_data="buy:" + str(pid))],
+        [ib("cadd", "Savatchaga qo'shish", callback_data="cadd:" + str(pid))],
+        [ib("back", "Orqaga", callback_data="cat:" + str(cid))]])
 
 def admin_order_kb(oid):
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✅ Tasdiqlash", callback_data="ok:" + str(oid)),
-        InlineKeyboardButton(text="❌ Rad etish", callback_data="no:" + str(oid))]])
+        ib("ok", "Tasdiqlash", callback_data="ok:" + str(oid)),
+        ib("no", "Rad etish", callback_data="no:" + str(oid))]])
 
 def subs_kb(chs):
     b = InlineKeyboardBuilder()
@@ -192,25 +244,25 @@ def subs_kb(chs):
         ch_name = ch if not ch.startswith("-100") else f"Channel ({ch})"
         ch_url = f"https://t.me/{ch.lstrip('@')}" if ch.startswith("@") else None
         if ch_url:
-            b.row(InlineKeyboardButton(text="📢 Obuna bo'lish", url=ch_url))
+            b.row(ib("sub", "Obuna bo'lish", url=ch_url))
         else:
              b.row(InlineKeyboardButton(text=f"📢 {ch_name}", callback_data="nothing"))
-    b.row(InlineKeyboardButton(text="✅ A'zo bo'ldim", callback_data="chk"))
+    b.row(ib("check", "A'zo bo'ldim", callback_data="chk"))
     return b.as_markup()
 
 def contact_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💬 Operatorga yozish", url="https://t.me/" + SUPPORT.lstrip("@"))],
-        [InlineKeyboardButton(text="📢 Rasmiy Kanalga o'tish", url=CHANNEL_URL)]])
+        [ib("op", "Operatorga yozish", url="https://t.me/" + SUPPORT.lstrip("@"))],
+        [ib("chan", "Rasmiy Kanalga o'tish", url=CHANNEL_URL)]])
 
 def admin_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📊 Statistika", callback_data="a:stats"),
-         InlineKeyboardButton(text="⏳ Kutilayotgan", callback_data="a:orders")],
-        [InlineKeyboardButton(text="📁 Kategoriya +", callback_data="a:addcat"),
-         InlineKeyboardButton(text="🎁 Mahsulot +", callback_data="a:addprod")],
-        [InlineKeyboardButton(text="🗑 O'chirish", callback_data="a:delprod"),
-         InlineKeyboardButton(text="📢 Reklama yuborish", callback_data="a:bc")]])
+        [ib("stats", "Statistika", callback_data="a:stats"),
+         ib("pending", "Kutilayotgan", callback_data="a:orders")],
+        [ib("plus", "Kategoriya +", callback_data="a:addcat"),
+         ib("plus", "Mahsulot +", callback_data="a:addprod")],
+        [ib("trash", "O'chirish", callback_data="a:delprod"),
+         ib("bc", "Reklama yuborish", callback_data="a:bc")]])
 
 # ============================== HOLATLAR ============================
 class Buy(StatesGroup):
@@ -283,7 +335,7 @@ async def check_sub(c: CallbackQuery, bot: Bot):
     await c.message.answer("✅ Rahmat! Endi botdan to'liq foydalanishingiz mumkin.", reply_markup=main_menu(c.from_user.id))
 
 # ========================== MENYU TUGMALARI =========================
-@router.message(F.text == BTN["srv"])
+@router.message(F.text.in_(BTN_ANY["srv"]))
 async def services(msg: Message, state: FSMContext):
     await state.clear()
     cats = await q("SELECT * FROM categories WHERE is_active=1 ORDER BY id")
@@ -302,7 +354,7 @@ async def services(msg: Message, state: FSMContext):
         return
     await msg.answer("🛍 <b>Xizmatlar:</b>", reply_markup=prods_kb(items))
 
-@router.message(F.text == BTN["cart"])
+@router.message(F.text.in_(BTN_ANY["cart"]))
 async def cart_show(msg: Message, state: FSMContext):
     await state.clear()
     items = await q("SELECT c.*, p.title, p.price, p.emoji FROM cart c "
@@ -315,14 +367,13 @@ async def cart_show(msg: Message, state: FSMContext):
              money(i["price"] * i["qty"]) + " " + CURRENCY for i in items]
     b = InlineKeyboardBuilder()
     for i in items:
-        b.row(InlineKeyboardButton(text="💳 Sotib olish: " + i["title"],
-                                   callback_data="buy:" + str(i["product_id"])))
-    b.row(InlineKeyboardButton(text="🗑 Savatchani tozalash", callback_data="cclr"))
+        b.row(ib("buy", "Sotib olish: " + i["title"], callback_data="buy:" + str(i["product_id"])))
+    b.row(ib("trash", "Savatchani tozalash", callback_data="cclr"))
     await msg.answer("🛒 <b>Savatchangiz:</b>\n\n" + "\n".join(lines) +
                      "\n\n💰 Jami: <b>" + money(total) + " " + CURRENCY + "</b>",
                      reply_markup=b.as_markup())
 
-@router.message(F.text == BTN["prof"])
+@router.message(F.text.in_(BTN_ANY["prof"]))
 async def profile(msg: Message, state: FSMContext, bot: Bot):
     await state.clear()
     u = await get_user(msg.from_user.id)
@@ -338,7 +389,7 @@ async def profile(msg: Message, state: FSMContext, bot: Bot):
            "🏆 Daraja: <b>" + level_of(u["spent"]) + "</b>\n"
            "💰 Jami keshbek: <b>" + money(u["cashback_total"]) + " " + CURRENCY + "</b>")
     kbd = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="📋 Mening buyurtmalarim", callback_data="myorders")]])
+        ib("orders", "Mening buyurtmalarim", callback_data="myorders")]])
     await msg.answer(txt, reply_markup=kbd, disable_web_page_preview=True)
 
 @router.callback_query(F.data == "myorders")
@@ -356,18 +407,18 @@ async def my_orders(c: CallbackQuery):
     await c.message.answer(txt)
     await c.answer()
 
-@router.message(F.text == BTN["lang"])
+@router.message(F.text.in_(BTN_ANY["lang"]))
 async def change_lang(msg: Message, state: FSMContext):
     await state.clear()
     await msg.answer("🌐 Tilni tanlang / Выберите язык:", reply_markup=lang_kb())
 
-@router.message(F.text == BTN["cont"])
+@router.message(F.text.in_(BTN_ANY["cont"]))
 async def contact(msg: Message, state: FSMContext):
     await state.clear()
     await msg.answer("📞 <b>Sifatli va tezkor xizmat markazi</b>\n\n"
                      "Biz bilan bog'lanish uchun tugmalardan foydalaning.", reply_markup=contact_kb())
 
-@router.message(F.text == BTN["ai"])
+@router.message(F.text.in_(BTN_ANY["ai"]))
 async def ai_start(msg: Message, state: FSMContext):
     await state.set_state(Ai.chat)
     await msg.answer("🚀 AI Yordamchi sizga yordam beradi. Savolingizni yozing.\n(AI rejimidan chiqish uchun /cancel yozing)")
@@ -377,7 +428,7 @@ async def ai_cancel(msg: Message, state: FSMContext):
     await state.clear()
     await msg.answer("Ajoyib, bot menyusiga qaytdingiz.", reply_markup=main_menu(msg.from_user.id))
 
-@router.message(F.text == "🔧 Test Obuna")
+@router.message(F.text.in_(BTN_ANY["test"]))
 @router.message(Command("test_obuna"))
 async def test_subscription_logic(msg: Message, bot: Bot, state: FSMContext):
     await state.clear()
@@ -443,7 +494,6 @@ async def open_cat(c: CallbackQuery):
 async def open_prod(c: CallbackQuery):
     pid = int(c.data.split(":")[1])
     p = await q("SELECT * FROM products WHERE id=?", (pid,), one=True)
-    
     p_emo = PREMIUM_EMOJIS.get(p["cat_id"], p["emoji"]) 
     
     rt, cnt = await rating(pid)
@@ -487,7 +537,7 @@ async def buy(c: CallbackQuery, state: FSMContext):
            "🏦 Rekvizitlar:\n<code>" + CARD_NUMBER + "</code>\n" + CARD_HOLDER + "\n\n"
            "📸 To'lovdan so'ng <b>chek rasmini shu yerga yuboring</b>.")
     kbd = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="🚫 Bekor qilish", callback_data="cxl:" + str(oid))]])
+        ib("cancel", "Bekor qilish", callback_data="cxl:" + str(oid))]])
     await c.message.edit_text(txt, reply_markup=kbd)
 
 @router.callback_query(F.data.startswith("cxl:"))
@@ -602,7 +652,7 @@ async def deliver_link_to_client(msg: Message, state: FSMContext, bot: Bot):
     await state.clear()
 
 # ============================ ADMIN PANEL ===========================
-@router.message(F.text == "⚙️ Boshqarish")
+@router.message(F.text.in_(BTN_ANY["adm"]))
 @router.message(Command("admin"))
 async def admin_panel(msg: Message, state: FSMContext):
     if msg.from_user.id not in ADMINS: return
