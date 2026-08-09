@@ -1,5 +1,5 @@
 # main.py — OBUNALAR HUB | BOT (aiogram 3.30+, Bot API 10.2)
-import asyncio, logging, os, json, aiohttp, aiosqlite, secrets, time
+import asyncio, logging, os, aiohttp, aiosqlite, time
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
@@ -13,7 +13,6 @@ from aiogram.types import (Message, CallbackQuery, InlineKeyboardButton as IKB,
                            ReplyKeyboardMarkup as RKM)
 
 # ================= SOZLAMALAR =================
-# Barcha ma'lumotlaringiz shu yerga to'g'ridan-to'g'ri kiritildi!
 BOT_TOKEN   = "8669054173:AAGrCaUidTFAlxd1PKHTIc2xPlEf_AjPZrc"
 ADMIN_ID    = 5700159922
 CARD_NUMBER = "5614 6867 0900 3860"
@@ -22,28 +21,28 @@ GEMINI_KEY  = "AQ.Ab8RN6JwNyNSvtYRxvMxbeOfZt7rOCRd9ti923RubWVl3rMIaA"
 GEMINI_MODEL= "gemini-1.5-flash"
 CHANNELS    = ["@obunahub_rasmiy", "@obunalarhub_guruh"]
 SUPPORT     = "@XushvaqtovSh"
-DB_PATH     = "obunahub.db"
-PORT        = int(os.getenv("PORT", "8080")) # Render uchun shu holatda qolishi shart!
+# Noldan toza ishlashi uchun baza nomi v2 qilindi
+DB_PATH     = "obunahub_v2.db"
+PORT        = int(os.getenv("PORT", "8080"))
 
-USE_PREMIUM_EMOJI = True          # Premium bo'lmasa -> False qiling
+USE_PREMIUM_EMOJI = True          
 logging.basicConfig(level=logging.INFO)
 
-# ============ PREMIUM EMOJI ID LARI (tekshirilgan) ============
+# ============ PREMIUM EMOJI ID LARI ============
 ICON = {
-    "Gemini":      "5452138632091569963",
-    "Claude":      "6174520215376763867",
-    "ChatGPT":     "5303113132460250222",
-    "Grok":        "6179337489350663129",
-    "Flow AI":     "6178962311072456422",
-    "CapCut":      "5978895591894161700",
-    "Leonardo AI": "6133975818591805751",
+    "Gemini Ai":    "5452138632091569963",
+    "Claud Ai":     "6174520215376763867",
+    "ChatGpt":      "5303113132460250222",
+    "Supper Grok":  "6179337489350663129",
+    "Flow Ai":      "6178962311072456422",
+    "CapCut":       "5978895591894161700",
+    "Leoanardo Ai": "6133975818591805751",
 }
 ICON_SOLD = "6181467651395558500"   # ❌ tugagan
-FALLBACK  = {"Gemini": "♊️", "Claude": "🟠", "ChatGPT": "🤖", "Grok": "✖️",
-             "Flow AI": "🅰️", "CapCut": "✂️", "Leonardo AI": "🎨"}
+FALLBACK  = {"Gemini Ai": "✨", "Claud Ai": "✴️", "ChatGpt": "💬", "Supper Grok": "🚀",
+             "Flow Ai": "🌊", "CapCut": "📹", "Leoanardo Ai": "💎"}
 
 def ib(text, icon=None, style=None, **kw):
-    """Inline tugma + premium logo."""
     if USE_PREMIUM_EMOJI:
         if icon:  kw["icon_custom_emoji_id"] = icon
         if style: kw["style"] = style
@@ -60,7 +59,7 @@ def cat_btn(name, cb, sold=False):
 def tg(icon, alt="🔹"):
     return f'<tg-emoji emoji-id="{icon}">{alt}</tg-emoji>' if USE_PREMIUM_EMOJI else alt
 
-# ================= TILLAR =================
+# ================= TILLAR VA MENYU =================
 MENU = {
     "srv":  ("🛍", "Xizmatlar", "Услуги"),
     "cart": ("🛒", "Savat", "Корзина"),
@@ -124,14 +123,33 @@ async def q(sql, args=(), fetch=None):
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript(SCHEMA); await db.commit()
-    for n in ICON:
-        await q("INSERT OR IGNORE INTO cats(name,icon) VALUES(?,?)", (n, ICON[n]))
+        
+    c_count = await q("SELECT COUNT(*) c FROM cats", (), "one")
+    if not c_count or c_count["c"] == 0:
+        # Kategoriyalarni kiritish
+        cats = ["Gemini Ai", "Claud Ai", "ChatGpt", "Supper Grok", "Flow Ai", "CapCut", "Leoanardo Ai"]
+        for name in cats:
+            await q("INSERT OR IGNORE INTO cats(name,icon) VALUES(?,?)", (name, ICON.get(name)))
+            
+        # Maxsulotlarni kiritish
+        prods = [
+            (1, "Gemini Ai Pro (18 oylik)", 40000, 100, "Obunani faollashtirish uchun linkni nusxalab oling. Keyin o'zingizga kerakli bo'lgan Google akkauntingizga o'tib, qidiruvga o'sha nusxalangan linkni joylang va qidiruvni bosing. So'ngra chiqqan saytdan \"Obunani faollashtirish\" yoki \"Get started\" tugmasini bosib, obunani o'z akkauntingizda faollashtirishingiz mumkin!\n\nEslatma: Ushbu link 12 soat davomida amal qiladi"),
+            (2, "Claud Pro (1 Oylik)", 165000, 100, "🛡️ 25 kunlik to'liq kafolat: Xarid jarayonidan so'ng 25 kun davomida kafolat amal qiladi.\n🔄 Kafolatlangan almashtirish: Agar obunada biror muammo chiqsa yoki faolsizlanib qolsa, o'rniga bir zumda yangisi taqdim etiladi.\n💳 Bank kartasi shart emas.\n⚡ Oson faollashtirish: Havolani bosasiz va bir nechta soniyada obuna akkauntingizda ishga tushadi."),
+            (3, "ChatGpt Plus (1 oylik)", 100000, 100, "🛡️ To'liq kafolat: Akkaunt barqaror va kafolatlangan holda taqdim etiladi.\n🔒 Taqiq va bloklanishsiz (No Ban): Akkauntdan foydalanish jarayonida muammolar yoki deaktivatsiya xavfi bo'lmaydi.\n🚀 Maksimal barqarorlik: Har doim uzluksiz, tez va barqaror ishlaydigan tayyor akkaunt (Stable Account)."),
+            (6, "CapCut PRO [7 kunlik]", 15000, 100, "CapCut PRO obunasi 7 kunlik To'liq Garantiya!"),
+            (6, "CapCut PRO [30 kunlik]", 42000, 100, "CapCut PRO obunasi 30 kunlik To'liq Garantiya!"),
+            (6, "CapCut PRO [3 oyliik]", 132000, 100, "CapCut PRO obunasi 3 oylik To'liq Garantiya!"),
+            (6, "CapCut PRO [6 oyliik]", 210000, 100, "CapCut PRO obunasi 6 oylik To'liq Garantiya!"),
+            (6, "CapCut PRO [1 yillik]", 370000, 100, "CapCut PRO obunasi 1 yillik To'liq Garantiya!"),
+            (7, "Leoanardo Ai 8500 Cridet", 50000, 100, "Leoanardo Ai 1 oylik obuna sizga 8500 cridet beriladi!"),
+        ]
+        for p in prods:
+            await q("INSERT INTO prods(cat,name,price,stock,info) VALUES(?,?,?,?,?)", p)
 
 async def get_user(m):
     u = await q("SELECT * FROM users WHERE id=?", (m.from_user.id,), "one")
     if not u:
-        await q("INSERT INTO users(id,name) VALUES(?,?)",
-                (m.from_user.id, m.from_user.full_name))
+        await q("INSERT INTO users(id,name) VALUES(?,?)", (m.from_user.id, m.from_user.full_name))
         u = await q("SELECT * FROM users WHERE id=?", (m.from_user.id,), "one")
     return u
 
