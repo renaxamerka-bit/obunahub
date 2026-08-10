@@ -20,7 +20,8 @@ from aiogram.types import (Message, CallbackQuery,
 
 # ================== SOZLAMALAR (ENV) ==================
 BOT_TOKEN    = os.getenv("BOT_TOKEN", "8669054173:AAGrCaUidTFAlxd1PKHTIc2xPlEf_AjPZrc")
-ADMIN_ID     = int(os.getenv("ADMIN_ID", "5700159922") or 0)
+# ADMIN_ID o'rniga ADMINS ro'yxati (kelajakda bir necha kishi admin bo'lishi uchun)
+ADMINS       = [int(x.strip()) for x in os.getenv("ADMINS", "5700159922").split(",") if x.strip()]
 CARD_NUMBER  = os.getenv("CARD_NUMBER", "5614 6867 0900 3860")
 CARD_OWNER   = os.getenv("CARD_OWNER", "ZAYNIDDIN SHODEYEV")
 GEMINI_KEY   = os.getenv("GEMINI_KEY", "AQ.Ab8RN6JwNyNSvtYRxvMxbeOfZt7rOCRd9ti923RubWVl3rMIaA")
@@ -37,9 +38,6 @@ logging.basicConfig(level=logging.INFO,
 log = logging.getLogger("hub")
 
 # ================== EMOJI PALITRASI ==================
-# Format: "kalit": (premium_emoji_id, oddiy_emoji_zaxira)
-# Zaxira emoji har doim animatsion emojining ma'nosiga MOS bo'lishi shart —
-# Premium yo'q foydalanuvchi ham menyuni to'g'ri tushunadi.
 E = {
     # --- interfeys ---
     "hello":   ("5462910521739063094", "👋"),
@@ -67,7 +65,7 @@ E = {
     "link":    ("5332755643822520488", "🔗"),
     "gem":     ("6264791387032523779", "💎"),
 
-    # --- kategoriyalar (sizning ID laringiz) ---
+    # --- kategoriyalar ---
     "Gemini Ai":    ("5452138632091569963", "✨"),
     "Claud Ai":     ("6174520215376763867", "✴️"),
     "ChatGpt":      ("5303113132460250222", "💬"),
@@ -77,7 +75,6 @@ E = {
     "Leoanardo Ai": ("6133975818591805751", "💎"),
 }
 
-# Xabar effektlari (faqat shaxsiy chatlarda ishlaydi)
 FX = {"party": "5046509860389126442", "fire": "5104841245755180586",
       "like": "5107584321108051014", "heart": "5159385139981059251"}
 
@@ -88,17 +85,12 @@ def fb(key):
     return E[key][1] if key in E else "•"
 
 def tg(key):
-    """Matn ichiga premium emoji joylash (HTML parse mode)."""
-    if key not in E:
-        return ""
+    if key not in E: return ""
     _id, alt = E[key]
     return f'<tg-emoji emoji-id="{_id}">{alt}</tg-emoji>' if PREMIUM_UI else alt
 
 # ================== TUGMA KONSTRUKTORLARI ==================
-# MUHIM: style har doim beriladi. style=None qoldirsangiz tugma
-# to'q, xunuk rangda chiqadi. "primary" — yorqin binafsha.
 def B(text, key=None, style="primary", icon_id=None, alt=None, **kw):
-    """Inline tugma: rang + premium ikonka."""
     icon = icon_id or (E[key][0] if key in E else None)
     label = text
     if PREMIUM_UI and icon:
@@ -106,31 +98,27 @@ def B(text, key=None, style="primary", icon_id=None, alt=None, **kw):
     else:
         pref = alt or (fb(key) if key in E else "")
         label = f"{pref} {text}".strip()
-    if style:
-        kw["style"] = style
+    if style: kw["style"] = style
     try:
         return IKB(text=label, **kw)
-    except Exception:                      # eski aiogram — style/icon yo'q
+    except Exception:
         kw.pop("style", None); kw.pop("icon_custom_emoji_id", None)
         return IKB(text=f"{alt or fb(key)} {text}".strip() if key in E else text, **kw)
 
 def RB(text, key=None, style="primary"):
-    """Reply (pastki) klaviatura tugmasi: rang + premium ikonka."""
     kw = {}
     label = text
     if PREMIUM_UI and key in E:
         kw["icon_custom_emoji_id"] = E[key][0]
     elif key in E:
         label = f"{fb(key)} {text}"
-    if style:
-        kw["style"] = style
+    if style: kw["style"] = style
     try:
         return KB(text=label, **kw)
     except Exception:
         return KB(text=f"{fb(key)} {text}" if key in E else text)
 
 def norm(s):
-    """Tugma matnini emojisiz, kichik harfda solishtirish uchun."""
     return re.sub(r"^[^\w\u0400-\u04FF]+", "", (s or "")).strip().lower()
 
 # ================== TARJIMALAR ==================
@@ -201,7 +189,6 @@ def t(lang, key, **kw):
     return T.get(lang, T["uz"]).get(key, key).format(**kw)
 
 def quote(text):
-    """AIVerse uslubidagi chiroyli blok."""
     return f"<blockquote>{text}</blockquote>"
 
 # ================== BAZA ==================
@@ -257,12 +244,9 @@ async def init_db():
 
     seed = [
       ("Gemini Ai", "Gemini Ai Pro (18 oylik)", 40000, 100,
-       "Obunani faollashtirish uchun linkni nusxalang. Google akkauntingizga kirib, "
-       "qidiruvga o'sha linkni joylang va \"Get started\" tugmasini bosing.\n\n"
-       "Eslatma: link 12 soat davomida amal qiladi."),
+       "Obunani faollashtirish uchun linkni nusxalang. Google akkauntingizga kirib, qidiruvga o'sha linkni joylang va \"Get started\" tugmasini bosing.\n\nEslatma: link 12 soat davomida amal qiladi."),
       ("Claud Ai", "Claude Pro (1 oylik)", 165000, 100,
-       "25 kunlik to'liq kafolat.\nMuammo chiqsa bir zumda almashtiriladi.\n"
-       "Bank kartasi shart emas.\nHavolani bosasiz — obuna bir necha soniyada ishga tushadi."),
+       "25 kunlik to'liq kafolat.\nMuammo chiqsa bir zumda almashtiriladi.\nBank kartasi shart emas.\nHavolani bosasiz — obuna bir necha soniyada ishga tushadi."),
       ("ChatGpt", "ChatGPT Plus (1 oylik)", 100000, 100,
        "To'liq kafolat.\nBloklanish xavfi yo'q.\nBarqaror va tez ishlaydigan tayyor akkaunt."),
       ("CapCut", "CapCut PRO (7 kunlik)", 15000, 100, "7 kunlik to'liq kafolat."),
@@ -270,8 +254,7 @@ async def init_db():
       ("CapCut", "CapCut PRO (3 oylik)", 132000, 100, "3 oylik to'liq kafolat."),
       ("CapCut", "CapCut PRO (6 oylik)", 210000, 100, "6 oylik to'liq kafolat."),
       ("CapCut", "CapCut PRO (1 yillik)", 370000, 100, "1 yillik to'liq kafolat."),
-      ("Leoanardo Ai", "Leonardo Ai — 8500 kredit", 50000, 100,
-       "1 oylik obuna, 8500 kredit beriladi."),
+      ("Leoanardo Ai", "Leonardo Ai — 8500 kredit", 50000, 100, "1 oylik obuna, 8500 kredit beriladi."),
     ]
     for cname, name, price, stock, info in seed:
         await q("INSERT INTO prods(cat,name,price,stock,info) VALUES(?,?,?,?,?)",
@@ -313,15 +296,13 @@ def lang_kb():
 async def cats_kb():
     rows, buf = [], []
     for c in await q("SELECT * FROM cats ORDER BY pos, id", (), "all"):
-        left = (await q("SELECT COALESCE(SUM(stock),0) s FROM prods WHERE cat=?",
-                        (c["id"],), "one"))["s"]
+        left = (await q("SELECT COALESCE(SUM(stock),0) s FROM prods WHERE cat=?", (c["id"],), "one"))["s"]
         buf.append(B(c["name"], icon_id=c["icon"] or None, alt=c["alt"],
                      style="success" if left > 0 else "danger",
                      callback_data=f"cat:{c['id']}"))
         if len(buf) == 2:
             rows.append(buf); buf = []
-    if buf:
-        rows.append(buf)
+    if buf: rows.append(buf)
     return IKM(inline_keyboard=rows or [[B("Bo'sh", "warn", "danger", callback_data="nop")]])
 
 async def prods_kb(cid):
@@ -354,22 +335,20 @@ def order_kb(oid):
         B("Rad etish",  "no", "danger",  callback_data=f"no:{oid}")]])
 
 def subs_kb():
-    rows = [[B(ch, "link", "primary", url=f"https://t.me/{ch.lstrip('@')}")]
-            for ch in CHANNELS]
+    rows = [[B(ch, "link", "primary", url=f"https://t.me/{ch.lstrip('@')}")] for ch in CHANNELS]
     rows.append([B("Tekshirish", "ok", "success", callback_data="chk")])
     return IKM(inline_keyboard=rows)
 
 def admin_kb():
     return IKM(inline_keyboard=[
-        [B("To'liq analitika", "money", "success", callback_data="a:stat")],
-        [B("Bo'lim qo'shish",  "ok",   "primary", callback_data="a:cat"),
-         B("Bo'lim tahrirlash","gem",  "primary", callback_data="a:editcat")],
-        [B("Mahsulot qo'shish","ok",   "primary", callback_data="a:prod"),
-         B("Mahsulot tahrir",  "gem",  "primary", callback_data="a:editprod")],
-        [B("Bo'lim o'chirish", "trash","danger",  callback_data="a:delcat"),
-         B("Mahsulot o'chirish","trash","danger", callback_data="a:delprod")],
-        [B("Reklama yuborish", "bolt", "success", callback_data="a:ads")],
-        [B("Emoji ID aniqlash","gem",  "primary", callback_data="a:emoji")]])
+        [B("To'liq Analitika", "money", "success", callback_data="a:stat")],
+        [B("Bo'lim qo'shish", "ok", "primary", callback_data="a:cat"),
+         B("Bo'lim tahrirlash", "gem", "primary", callback_data="a:editcat")],
+        [B("Mahsulot qo'shish", "ok", "primary", callback_data="a:prod"),
+         B("Mahsulot tahrirlash", "gem", "primary", callback_data="a:editprod")],
+        [B("Bo'lim o'chirish", "trash", "danger", callback_data="a:delcat"),
+         B("Mahsulot o'chirish", "trash", "danger", callback_data="a:delprod")],
+        [B("Reklama yuborish", "bolt", "success", callback_data="a:ads")]])
 
 # ================== HOLATLAR ==================
 class Buy(StatesGroup):
@@ -397,7 +376,6 @@ async def missing_subs(bot: Bot, uid: int):
     return out
 
 async def safe_edit(msg: Message, text: str, kb=None):
-    """AIVerse uslubi: yangi xabar yubormay, bittasini tahrirlaymiz."""
     try:
         await msg.edit_text(text, reply_markup=kb)
     except TelegramBadRequest as e:
@@ -407,8 +385,7 @@ async def safe_edit(msg: Message, text: str, kb=None):
             await msg.answer(text, reply_markup=kb)
 
 async def gemini(prompt: str) -> str:
-    if not GEMINI_KEY:
-        return ""
+    if not GEMINI_KEY: return ""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
     headers = {"x-goog-api-key": GEMINI_KEY, "Content-Type": "application/json"}
     body = {
@@ -429,7 +406,7 @@ async def gemini(prompt: str) -> str:
         log.error("Gemini xato: %s", e)
         return ""
 
-def is_admin(uid): return ADMIN_ID and uid == ADMIN_ID
+def is_admin(uid): return uid in ADMINS
 
 # ================== START / OBUNA ==================
 @router.message(CommandStart())
@@ -566,7 +543,6 @@ async def cart_clear(c: CallbackQuery):
 
 # ================== XARID ==================
 async def start_order(msg: Message, uid: int, items, state: FSMContext):
-    """items = [(pid, name, price), ...]"""
     row = await q("SELECT lang FROM users WHERE id=?", (uid,), "one")
     lang = row["lang"] if row else "uz"
     total = sum(i[2] for i in items)
@@ -617,15 +593,16 @@ async def receipt(m: Message, state: FSMContext, bot: Bot):
     await state.clear()
     await m.answer(quote(t(u["lang"], "recv", i=tg("ok"))),
                    reply_markup=main_menu(u["lang"], is_admin(m.from_user.id)))
-    if ADMIN_ID:
+    if ADMINS:
         cap = (f"{tg('warn')} <b>Yangi buyurtma #{oid}</b>\n\n"
                f"{tg('profile')} {m.from_user.full_name} "
                f"(<code>{m.from_user.id}</code>) @{m.from_user.username or '—'}\n"
                f"{tg('shop')} {o['title']}\n"
                f"{tg('money')} <b>{o['total']:,} so'm</b>")
-        with suppress(Exception):
-            await bot.send_photo(ADMIN_ID, fid, caption=quote(cap),
-                                 reply_markup=order_kb(oid))
+        for adm in ADMINS:
+            with suppress(Exception):
+                await bot.send_photo(adm, fid, caption=quote(cap),
+                                     reply_markup=order_kb(oid))
 
 @router.message(Buy.receipt)
 async def receipt_wrong(m: Message):
@@ -762,211 +739,154 @@ async def admin_actions(c: CallbackQuery, state: FSMContext):
     if a == "stat":
         uc = (await q("SELECT COUNT(*) c FROM users", (), "one"))["c"]
         oc = (await q("SELECT COUNT(*) c FROM orders WHERE status='paid'", (), "one"))["c"]
-        nw = (await q("SELECT COUNT(*) c FROM orders WHERE status='new'", (), "one"))["c"]
         sm = (await q("SELECT SUM(total) c FROM orders WHERE status='paid'", (), "one"))["c"] or 0
-        top = await q("""SELECT p.name, COUNT(*) n FROM order_items oi
-                         JOIN prods p ON p.id=oi.pid
-                         JOIN orders o ON o.id=oi.oid WHERE o.status='paid'
-                         GROUP BY oi.pid ORDER BY n DESC LIMIT 5""", (), "all")
-        tops = "\n".join(f"{tg('arrow')} {r['name'][:28]} — <b>{r['n']}</b>" for r in top) or "—"
-        await c.message.answer(quote(
-            f"{tg('money')} <b>Analitika</b>\n\n"
-            f"{tg('profile')} Foydalanuvchilar: <b>{uc}</b>\n"
-            f"{tg('ok')} Sotuvlar: <b>{oc}</b>\n"
-            f"{tg('warn')} Kutilmoqda: <b>{nw}</b>\n"
-            f"{tg('money')} Tushum: <b>{sm:,} so'm</b>\n\n"
-            f"{tg('fire')} <b>TOP mahsulotlar</b>\n{tops}"))
+        ts = (await q("SELECT SUM(total) c FROM orders WHERE status='paid' AND date(ts) = date('now')", (), "one"))["c"] or 0
+        prods = (await q("SELECT COUNT(*) c FROM prods", (), "one"))["c"]
+        cats = (await q("SELECT COUNT(*) c FROM cats", (), "one"))["c"]
+        await c.message.answer(quote(f"📊 <b>To'liq Analitika</b>\n\n"
+                               f"👥 Jami foydalanuvchilar: <b>{uc} ta</b>\n"
+                               f"📦 Muvaffaqiyatli sotuvlar: <b>{oc} ta</b>\n"
+                               f"📁 Jami bo'limlar: <b>{cats} ta</b>\n"
+                               f"🛒 Jami mahsulotlar: <b>{prods} ta</b>\n"
+                               f"💰 Jami tushum: <b>{sm:,} so'm</b>\n"
+                               f"🔥 Bugungi tushum: <b>{ts:,} so'm</b>"))
 
     elif a == "cat":
         await state.set_state(Adm.cat)
-        await c.message.answer(quote(
-            "<b>Yangi bo'lim</b>\nFormat:\n<code>Nom | emoji_id | zaxira_emoji</code>\n\n"
-            "Misol:\n<code>Midjourney | 5452138632091569963 | 🎨</code>"))
+        await c.message.answer(quote("📝 <b>Bo'lim nomi va emoji ID:</b>\nFormat: <code>Nom | ID</code>\nMasalan: <code>Netflix | 5452138632091569963</code>"))
 
     elif a == "editcat":
-        cs = await q("SELECT * FROM cats ORDER BY pos,id", (), "all")
-        lst = "\n".join(f"<code>{r['id']}</code> — {r['alt']} {r['name']}" for r in cs)
+        cs = await q("SELECT * FROM cats", (), "all")
+        txt = "\n".join(f"<code>{c['id']}</code> - {c['name']}" for c in cs)
         await state.set_state(Adm.editcat)
-        await c.message.answer(quote(f"<b>Bo'lim tahriri</b>\n{lst}\n\nFormat:\n"
-                                     f"<code>id | yangi_nom | emoji_id | zaxira</code>"))
+        await c.message.answer(quote(f"📁 <b>Kategoriyalar:</b>\n{txt}\n\n📝 Tahrirlash formati: <code>cat_id | Yangi Nom | Yangi_Emoji_ID</code>"))
 
     elif a == "delcat":
-        cs = await q("SELECT * FROM cats ORDER BY pos,id", (), "all")
-        lst = "\n".join(f"<code>{r['id']}</code> — {r['name']}" for r in cs)
+        cs = await q("SELECT * FROM cats", (), "all")
+        txt = "\n".join(f"<code>{c['id']}</code> - {c['name']}" for c in cs)
         await state.set_state(Adm.delcat)
-        await c.message.answer(quote(f"<b>Bo'lim o'chirish</b>\n{lst}\n\n"
-                                     f"Faqat ID raqamini yuboring."))
+        await c.message.answer(quote(f"🗑 <b>O'chirish uchun kategoriya ID raqamini yuboring:</b>\n{txt}\n(Diqqat: Ichidagi mahsulotlar qolib ketadi)"))
 
     elif a == "prod":
-        cs = await q("SELECT * FROM cats ORDER BY pos,id", (), "all")
-        lst = "\n".join(f"<code>{r['id']}</code> — {r['name']}" for r in cs)
+        cs = await q("SELECT * FROM cats", (), "all")
+        txt = "\n".join(f"<code>{c['id']}</code> - {c['name']}" for c in cs)
         await state.set_state(Adm.prod)
-        await c.message.answer(quote(f"<b>Yangi mahsulot</b>\n{lst}\n\nFormat:\n"
-                                     f"<code>cat_id | nom | narx | stock | info</code>"))
+        await c.message.answer(quote(f"📁 <b>Kategoriyalar:</b>\n{txt}\n\n📝 Format: <code>cat_id | nom | narx | info</code>"))
 
     elif a == "editprod":
-        ps = await q("SELECT id,name,price,stock FROM prods ORDER BY cat,id", (), "all")
-        lst = "\n".join(f"<code>{r['id']}</code> — {r['name'][:26]} "
-                        f"({r['price']:,} / {r['stock']})" for r in ps)
+        ps = await q("SELECT * FROM prods", (), "all")
+        txt = "\n".join(f"<code>{p['id']}</code> - {p['name']} ({p['price']:,} so'm)" for p in ps)
+        if not txt: txt = "Mahsulotlar yo'q"
         await state.set_state(Adm.editprod)
-        await c.message.answer(quote(f"<b>Mahsulot tahriri</b>\n{lst}\n\nFormat:\n"
-                                     f"<code>id | nom | narx | stock | info</code>"))
+        await c.message.answer(quote(f"📦 <b>Mahsulotlar:</b>\n{txt}\n\n📝 Tahrirlash formati:\n<code>prod_id | yangi_nom | yangi_narx | yangi_info</code>"))
 
     elif a == "delprod":
-        ps = await q("SELECT id,name FROM prods ORDER BY cat,id", (), "all")
-        lst = "\n".join(f"<code>{r['id']}</code> — {r['name'][:30]}" for r in ps)
+        ps = await q("SELECT * FROM prods", (), "all")
+        txt = "\n".join(f"<code>{p['id']}</code> - {p['name']}" for p in ps)
+        if not txt: txt = "Mahsulotlar yo'q"
         await state.set_state(Adm.delprod)
-        await c.message.answer(quote(f"<b>Mahsulot o'chirish</b>\n{lst}\n\n"
-                                     f"Faqat ID raqamini yuboring."))
+        await c.message.answer(quote(f"🗑 <b>O'chirish uchun mahsulot ID raqamini yuboring:</b>\n{txt}"))
 
     elif a == "ads":
         await state.set_state(Adm.ads)
-        await c.message.answer(quote(f"{tg('bolt')} <b>Reklama</b>\n"
-                                     f"Yubormoqchi bo'lgan xabarni tashlang (matn/rasm/video)."))
+        await c.message.answer(quote("📢 <b>Reklama xabarini yuboring (matn/rasm/video):</b>"))
 
-    elif a == "emoji":
-        await state.set_state(Adm.emoji)
-        await c.message.answer(quote(
-            f"{tg('gem')} <b>Emoji ID aniqlash</b>\n\n"
-            f"Istalgan premium emojilarni shu yerga yuboring — "
-            f"men ularning <code>custom_emoji_id</code> larini qaytaraman. "
-            f"Ularni yuqoridagi <code>E</code> lug'atiga qo'ying.\n\n"
-            f"Chiqish: /cancel"))
     await c.answer()
-
-@router.message(Adm.emoji)
-async def emoji_ids(m: Message, state: FSMContext):
-    ents = (m.entities or []) + (m.caption_entities or [])
-    found = [e for e in ents if e.type == "custom_emoji"]
-    if not found:
-        return await m.answer(quote(f"{tg('warn')} Premium emoji topilmadi. "
-                                    f"Qayta urinib ko'ring yoki /cancel"))
-    src = m.text or m.caption or ""
-    out = []
-    for e in found:
-        alt = src[e.offset:e.offset + e.length]
-        out.append(f'"{alt}" → <code>{e.custom_emoji_id}</code>')
-    await m.answer(quote(f"{tg('gem')} <b>Topildi:</b>\n\n" + "\n".join(out)))
 
 @router.message(Adm.cat)
 async def add_cat(m: Message, state: FSMContext):
-    await state.clear()
-    p = [x.strip() for x in (m.text or "").split("|")]
-    if len(p) < 2 or not p[0]:
-        return await m.answer(quote(f"{tg('no')} <b>Format xato.</b>\n"
-                                    f"<code>Nom | emoji_id | zaxira_emoji</code>"))
-    name, icon = p[0], p[1]
-    alt = p[2] if len(p) > 2 and p[2] else "•"
-    try:
+    parts = [x.strip() for x in m.text.split("|")]
+    if len(parts) >= 2:
+        name, icon = parts[0], parts[1]
         pos = (await q("SELECT COALESCE(MAX(pos),0)+1 p FROM cats", (), "one"))["p"]
-        await q("INSERT INTO cats(name,icon,alt,pos) VALUES(?,?,?,?)",
-                (name, icon, alt, pos))
-        await m.answer(quote(f"{tg('ok')} <b>Bo'lim qo'shildi:</b> {alt} {name}"))
-    except Exception as e:
-        await m.answer(quote(f"{tg('no')} Xato: <code>{e}</code>"))
+        await q("INSERT INTO cats(name,icon,alt,pos) VALUES(?,?,?,?)", (name, icon, "•", pos))
+        await m.answer(quote("✅ Kategoriya muvaffaqiyatli qo'shildi."))
+    else:
+        await m.answer(quote("❌ Format xato kiritildi. Iltimos: <code>Nom | ID</code> shaklida yuboring."))
+    await state.clear()
 
 @router.message(Adm.editcat)
 async def edit_cat(m: Message, state: FSMContext):
+    p = [x.strip() for x in m.text.split("|")]
+    if len(p) == 3 and p[0].isdigit():
+        await q("UPDATE cats SET name=?, icon=? WHERE id=?", (p[1], p[2], int(p[0])))
+        await m.answer(quote("✅ Bo'lim muvaffaqiyatli tahrirlandi."))
+    else:
+        await m.answer(quote("❌ Format xato. Namuna:\n<code>1 | Yangi Nom | 5452138632...</code>"))
     await state.clear()
-    p = [x.strip() for x in (m.text or "").split("|")]
-    if len(p) < 2 or not p[0].isdigit():
-        return await m.answer(quote(f"{tg('no')} <b>Format xato.</b>\n"
-                                    f"<code>id | nom | emoji_id | zaxira</code>"))
-    cid, name = int(p[0]), p[1]
-    icon = p[2] if len(p) > 2 else None
-    alt = p[3] if len(p) > 3 and p[3] else None
-    old = await q("SELECT * FROM cats WHERE id=?", (cid,), "one")
-    if not old:
-        return await m.answer(quote(f"{tg('no')} Bunday bo'lim yo'q."))
-    await q("UPDATE cats SET name=?, icon=?, alt=? WHERE id=?",
-            (name, icon or old["icon"], alt or old["alt"], cid))
-    await m.answer(quote(f"{tg('ok')} <b>Bo'lim yangilandi:</b> {alt or old['alt']} {name}"))
 
 @router.message(Adm.delcat)
 async def del_cat(m: Message, state: FSMContext):
+    if m.text.strip().isdigit():
+        cid = int(m.text.strip())
+        await q("DELETE FROM prods WHERE cat=?", (cid,))
+        await q("DELETE FROM cats WHERE id=?", (cid,))
+        await m.answer(quote("✅ Bo'lim va uning ichidagi mahsulotlar o'chirildi."))
+    else:
+        await m.answer(quote("❌ Faqat raqam (ID) yuboring."))
     await state.clear()
-    if not (m.text or "").strip().isdigit():
-        return await m.answer(quote(f"{tg('no')} Faqat ID raqam yuboring."))
-    cid = int(m.text.strip())
-    n = (await q("SELECT COUNT(*) c FROM prods WHERE cat=?", (cid,), "one"))["c"]
-    await q("DELETE FROM prods WHERE cat=?", (cid,))
-    await q("DELETE FROM cats WHERE id=?", (cid,))
-    await m.answer(quote(f"{tg('trash')} <b>Bo'lim o'chirildi.</b>\n"
-                         f"Birga o'chgan mahsulotlar: <b>{n}</b> ta"))
 
 @router.message(Adm.prod)
 async def add_prod(m: Message, state: FSMContext):
+    p = [x.strip() for x in m.text.split("|")]
+    if len(p) >= 4:
+        try:
+            cat_id = int(p[0])
+            name = p[1]
+            price = int(p[2].replace(" ", ""))
+            info = "|".join(p[3:])
+            await q("INSERT INTO prods(cat,name,price,stock,info) VALUES(?,?,?,100,?)",
+                    (cat_id, name, price, info))
+            await m.answer(quote("✅ Mahsulot muvaffaqiyatli qo'shildi."))
+        except Exception:
+            await m.answer(quote("❌ Xatolik yuz berdi: ID yoki narx xato kiritilgan bo'lishi mumkin."))
+    else:
+        await m.answer(quote("❌ Format xato kiritildi. Iltimos: <code>cat_id | nom | narx | info</code> shaklida yuboring."))
     await state.clear()
-    p = [x.strip() for x in (m.text or "").split("|")]
-    if len(p) < 4:
-        return await m.answer(quote(f"{tg('no')} <b>Format xato.</b>\n"
-                                    f"<code>cat_id | nom | narx | stock | info</code>"))
-    try:
-        cid = int(p[0])
-        price = int(p[2].replace(" ", "").replace(",", ""))
-        stock = int(p[3])
-    except ValueError:
-        return await m.answer(quote(f"{tg('no')} ID, narx yoki stock raqam emas."))
-    if not await q("SELECT id FROM cats WHERE id=?", (cid,), "one"):
-        return await m.answer(quote(f"{tg('no')} Bunday bo'lim yo'q."))
-    info = p[4] if len(p) > 4 else ""
-    await q("INSERT INTO prods(cat,name,price,stock,info) VALUES(?,?,?,?,?)",
-            (cid, p[1], price, stock, info))
-    await m.answer(quote(f"{tg('ok')} <b>Mahsulot qo'shildi:</b> {p[1]} — {price:,} so'm"))
 
 @router.message(Adm.editprod)
 async def edit_prod(m: Message, state: FSMContext):
+    p = [x.strip() for x in m.text.split("|")]
+    if len(p) >= 4 and p[0].isdigit():
+        try:
+            pid = int(p[0])
+            name = p[1]
+            price = int(p[2].replace(" ", ""))
+            info = "|".join(p[3:])
+            await q("UPDATE prods SET name=?, price=?, info=? WHERE id=?", (name, price, info, pid))
+            await m.answer(quote("✅ Mahsulot muvaffaqiyatli tahrirlandi."))
+        except Exception:
+            await m.answer(quote("❌ Narx yoki ID xato kiritildi."))
+    else:
+        await m.answer(quote("❌ Format xato. Namuna:\n<code>1 | Premium | 15000 | Malumot</code>"))
     await state.clear()
-    p = [x.strip() for x in (m.text or "").split("|")]
-    if len(p) < 4 or not p[0].isdigit():
-        return await m.answer(quote(f"{tg('no')} <b>Format xato.</b>\n"
-                                    f"<code>id | nom | narx | stock | info</code>"))
-    old = await q("SELECT * FROM prods WHERE id=?", (int(p[0]),), "one")
-    if not old:
-        return await m.answer(quote(f"{tg('no')} Bunday mahsulot yo'q."))
-    try:
-        price = int(p[2].replace(" ", "").replace(",", ""))
-        stock = int(p[3])
-    except ValueError:
-        return await m.answer(quote(f"{tg('no')} Narx yoki stock raqam emas."))
-    info = p[4] if len(p) > 4 else old["info"]
-    await q("UPDATE prods SET name=?, price=?, stock=?, info=? WHERE id=?",
-            (p[1], price, stock, info, old["id"]))
-    await m.answer(quote(f"{tg('ok')} <b>Yangilandi:</b> {p[1]} — {price:,} so'm "
-                         f"(stock: {stock})"))
 
 @router.message(Adm.delprod)
 async def del_prod(m: Message, state: FSMContext):
+    if m.text.strip().isdigit():
+        pid = int(m.text.strip())
+        await q("DELETE FROM cart WHERE pid=?", (pid,))
+        await q("DELETE FROM order_items WHERE pid=?", (pid,))
+        await q("DELETE FROM prods WHERE id=?", (pid,))
+        await m.answer(quote("✅ Mahsulot o'chirildi."))
+    else:
+        await m.answer(quote("❌ Faqat raqam (ID) yuboring."))
     await state.clear()
-    if not (m.text or "").strip().isdigit():
-        return await m.answer(quote(f"{tg('no')} Faqat ID raqam yuboring."))
-    pid = int(m.text.strip())
-    await q("DELETE FROM cart WHERE pid=?", (pid,))
-    await q("DELETE FROM prods WHERE id=?", (pid,))
-    await m.answer(quote(f"{tg('trash')} <b>Mahsulot o'chirildi.</b>"))
 
 @router.message(Adm.ads)
 async def send_ads(m: Message, state: FSMContext, bot: Bot):
-    await state.clear()
-    users = await q("SELECT id FROM users", (), "all")
-    status = await m.answer(quote(f"{tg('bolt')} <b>Tarqatilmoqda...</b> 0/{len(users)}"))
-    ok = err = 0
-    for i, u in enumerate(users, 1):
+    us = await q("SELECT id FROM users", (), "all")
+    ok, err = 0, 0
+    msg = await m.answer(quote("⏳ Xabar tarqatilmoqda..."))
+    for u in us:
         try:
             await bot.copy_message(u["id"], m.chat.id, m.message_id)
             ok += 1
         except Exception:
             err += 1
-        if i % 25 == 0:
-            with suppress(Exception):
-                await status.edit_text(quote(
-                    f"{tg('bolt')} <b>Tarqatilmoqda...</b> {i}/{len(users)}"))
         await asyncio.sleep(0.05)
-    with suppress(Exception):
-        await status.edit_text(quote(
-            f"{tg('ok')} <b>Tarqatish tugadi</b>\n\n"
-            f"{tg('arrow')} Yuborildi: <b>{ok}</b>\n"
-            f"{tg('no')} Xato: <b>{err}</b>"))
+    await msg.edit_text(quote(f"✅ Tarqatish tugadi.\n\n📤 Yuborildi: {ok} ta\n❌ Xato: {err} ta"))
+    await state.clear()
 
 # ================== ISHGA TUSHIRISH ==================
 async def handle_ping(request):
@@ -980,8 +900,8 @@ async def main():
     if not BOT_TOKEN:
         log.error("BOT_TOKEN yo'q! Environment variable orqali bering.")
         return
-    if not ADMIN_ID:
-        log.warning("ADMIN_ID berilmagan — admin panel ishlamaydi.")
+    if not ADMINS:
+        log.warning("ADMINS berilmagan — admin panel ishlamaydi.")
 
     await init_db()
 
@@ -1017,7 +937,7 @@ async def main():
         await runner.cleanup()
         await on_shutdown()
 
-if __name__ == "__main__":          # <-- eski kodda `if name ==` edi, shu sabab ishlamagan
+if __name__ == "__main__":          
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
