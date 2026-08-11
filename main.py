@@ -4,6 +4,7 @@
 #  Dizayn: rangli tugmalar (primary/success/danger) + premium emoji
 # ============================================================
 import asyncio, logging, os, re, aiohttp, aiosqlite
+import alerts
 from contextlib import suppress
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F, Router
@@ -266,6 +267,7 @@ async def get_user(src):
     u = await q("SELECT * FROM users WHERE id=?", (uid,), "one")
     if not u:
         await q("INSERT INTO users(id,name) VALUES(?,?)", (uid, name))
+        alerts.new_user(uid)
         u = await q("SELECT * FROM users WHERE id=?", (uid,), "one")
     return u
 
@@ -633,7 +635,11 @@ async def moderate(c: CallbackQuery, state: FSMContext, bot: Bot):
             (o["total"], o["uid"]))
     for it in await q("SELECT pid FROM order_items WHERE oid=?", (oid,), "all"):
         await q("UPDATE prods SET stock=stock-1 WHERE id=? AND stock>0", (it["pid"],))
+        _p = await q("SELECT name,stock FROM prods WHERE id=?", (it["pid"],), "one")
+        if _p and _p["stock"] == 0:
+            alerts.stock_out(_p["name"])
     await q("DELETE FROM cart WHERE uid=?", (o["uid"],))
+    alerts.purchase(o["uid"], o["title"], o["total"], oid)
     await state.set_state(Adm.give)
     await state.update_data(uid=o["uid"], oid=oid)
     await c.message.edit_caption(caption=quote(f"{tg('ok')} <b>#{oid} tasdiqlandi</b>"))
@@ -720,6 +726,14 @@ async def ai_chat(m: Message):
         await m.answer(ans[i:i + 3800])
 
 # ================== ADMIN PANEL ==================
+@router.message(Command("testalert"))
+async def test_alert(m: Message):
+    if not is_admin(m.from_user.id):
+        return
+    alerts.test()
+    await m.answer("Test alert yuborildi. Guruhni tekshiring.")
+
+
 @router.message(Command("admin"))
 async def admin_cmd(m: Message):
     if is_admin(m.from_user.id):
