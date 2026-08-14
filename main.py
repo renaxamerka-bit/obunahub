@@ -160,7 +160,8 @@ ADMIN_BTN = "Admin panel"
 T = {
  "uz": {
   "start": "{h} <b>Assalomu alaykum, {n}!</b>\n\nOBUNALAR HUB — eng arzon AI obunalar do'koni.\nQuyidagi menyudan kerakli bo'limni tanlang.",
-  "cats": "{i} <b>Bo'limni tanlang</b>\nSizga kerakli AI xizmatini tanlang:",
+  "cats": ("{i} <b>Bo'limni tanlang</b>\nSizga kerakli AI xizmatini tanlang:\n\n"
+           "<b>Agar Sizga Boshqa Ai Obunalari Kerak Bo'lsa {s} ga yozing!</b>"),
   "prods": "{i} <b>{c}</b>\nMahsulotni tanlang:",
   "empty": "Hozircha bo'sh.",
   "cart_empty": "{i} <b>Savatingiz bo'sh</b>\nXizmatlar bo'limidan mahsulot qo'shing.",
@@ -184,7 +185,8 @@ T = {
  },
  "ru": {
   "start": "{h} <b>Здравствуйте, {n}!</b>\n\nOBUNALAR HUB — магазин AI-подписок.\nВыберите раздел из меню ниже.",
-  "cats": "{i} <b>Выберите раздел</b>\nВыберите нужный AI-сервис:",
+  "cats": ("{i} <b>Выберите раздел</b>\nВыберите нужный AI-сервис:\n\n"
+           "<b>Если вам нужны другие AI-подписки — напишите {s}</b>"),
   "prods": "{i} <b>{c}</b>\nВыберите товар:",
   "empty": "Пока пусто.",
   "cart_empty": "{i} <b>Корзина пуста</b>\nДобавьте товар из раздела «Услуги».",
@@ -287,6 +289,87 @@ INFO_VEO3 = (
     "Ulanish vaqti: Buyurtma berilgan kunidan boshlab 12 soat amal qiladi!"
 )
 
+INFO_KLING_70K = (
+    "Eslatma uchun: bu obunada cheksiz videolar yasaysiz!\n"
+    "1 oyga kafolat beramiz!\n\n"
+    "Omborda: 2 dona qolgan."
+)
+
+INFO_KLING_900 = (
+    "Eslatma uchun: bu obunada videolar yasaysiz!\n"
+    "1 oyga kafolat beramiz!"
+)
+
+INFO_HIGGS_3K = "Bu obunaga 3 kun kafolat beramiz!"
+
+
+def _claude_max(x):
+    return (
+        f"Claude AI Pro ({x}x Max) — sun'iy intellektning eng yuqori bosqichi!\n"
+        "Dasturlash, murakkab kodlar yozish, mantiqiy tahlil va matnlar bilan ishlashda "
+        "dunyodagi eng kuchli AI modeli — Claude 3.5 Sonnet / Opus bilan tanishing!\n\n"
+        "Ushbu akkaunt sizga nima beradi?\n\n"
+        f"• {x} baravar ko'proq limit ({x}x Max): tekin versiyaga qaraganda {x} baravar ko'p "
+        "xabar yozish imkoniyati. Kun bo'yi cheklovlarsiz, erkin va tinimsiz ishlang.\n"
+        "• Dasturchilar va mutaxassislar uchun ideal: Python, JavaScript, Telegram botlar, "
+        "backend/frontend va murakkab algoritmlarni bir zumda xatosiz yozib beradi.\n"
+        "• Karta shart emas (No Card Needed): xalqaro Visa/Mastercard ulash, to'lov muammolari "
+        "va ortiqcha bosh og'riqlarsiz — tayyor ishchi holatda taqdim etiladi.\n"
+        "• 25 kunlik to'liq kafolat: kafolat muddati davomida qandaydir muammo yoki bloklanish "
+        "yuz bersa, akkauntingiz zudlik bilan almashtirib beriladi (Full Replacement)."
+    )
+
+
+def _claude_api(usd):
+    return (
+        "Mahsulot haqida:\n\n"
+        f"• Manba: Kiro AWS orqali taqdim etilgan API Claude ${usd} balansi.\n"
+        "• Hisoblash tartibi: token narxlari Claude Code rasmiy tariflariga muvofiq hisoblanadi.\n"
+        "• Amal qilish muddati: 1 oy (30 kun).\n"
+        "• Kafolat: 1 oy (30 kunlik to'liq kafolat beriladi)."
+    )
+
+
+INFO_VEO3_APK = (
+    "Google Veo 3 Ultra — 45 000 AI kredit (1 oy)\n"
+    "Sun'iy intellekt orqali matndan yuqori sifatli va realistik videolar yarating!\n\n"
+    "Nima qila oladi?\n"
+    "• Reels, Shorts va TikTok uchun tayyor video-kontent\n"
+    "• Prompt (matn) orqali ultra-sifatli va cinematic videolar\n\n"
+    "Tarif ma'lumotlari:\n"
+    "• Kredit: 45 000 Credits\n"
+    "• Muddati: 30 kun (1 oy)\n"
+    "• Kafolat: 30 kunlik to'liq support\n\n"
+    "Qanday ishlatiladi?\n"
+    "• PC uchun: Chrome brauzeriga maxsus Extension (kengaytma) o'rnatiladi."
+)
+
+INFO_GPT_20X = (
+    "ChatGPT Pro 20x — cheksiz va barqaror akkaunt!\n"
+    "AI imkoniyatlaridan maksimal darajada foydalanmoqchi bo'lganlar, dasturchilar va "
+    "kontent-meykerlar uchun eng kuchli tarif!\n\n"
+    "Afzalliklari:\n"
+    "• 20x ko'proq limit: oddiy ChatGPT Plus'ga qaraganda 20 baravar ko'proq so'rov va javob.\n"
+    "• 100% xavfsiz: bloklanish (ban) yoki deaktivatsiya bo'lish xavfi yo'q.\n"
+    "• Barqaror ishlash: ulanish uzilib qolmaydi, doimiy ishchi holatda.\n"
+    "• Kafolat (Warranty): akkauntga to'liq kafolat beriladi."
+)
+
+INFO_ELEVEN_100K = (
+    "ElevenLabs Creator — O'zbekistondagi eng zo'r AI ovoz generatsiyasi!\n"
+    "Videolarga professional dublyaj qilish, kitob o'qitish va kontent yaratish uchun "
+    "dunyodagi eng zo'r sun'iy intellekt vositasi!\n\n"
+    "Imkoniyatlari:\n"
+    "• 100 000 AI kredit: har oy uchun ulkan belgi (simvol) limiti.\n"
+    "• O'z ovozingizni klonlash (Voice Cloning): o'zingizning yoki boshqa birovning ovozini "
+    "AI'ga o'rgatib, matn o'qitish.\n"
+    "• Ultra-realistik ovozlar: his-tuyg'uli, xuddi tirik odamdek gapiradigan 100+ xil ovozlar "
+    "(o'zbek va rus tillarini ham juda tiniq gapiradi).\n"
+    "• Tijorat litsenziyasi (Commercial License): yaratilgan audio va dublyajlarni YouTube, "
+    "Reels va tijoriy loyihalarda bemalol ishlatishingiz mumkin.\n"
+    "• Kafolatli va xavfsiz: akkaunt to'liq kafolatlangan va barqaror ishlaydi."
+)
+
 # ---------- BOSHLANG'ICH MAHSULOTLAR (id, cat_id, nom, narx, zaxira, tavsif) ----------
 SEED_PRODS = [
     (2,  2,  "Claude Pro (1 oylik)",                        165000, 100, INFO_CLAUDE),
@@ -300,6 +383,18 @@ SEED_PRODS = [
     (10, 12, "Gemini Ai (18 oylik)",                         40000, 100, INFO_GEMINI),
     (11, 12, "Gemini Ai (12 oylik)",                         25000, 100, INFO_GEMINI),
     (12, 13, "VEO3 Ultra 0-25k Tasodify Kredit (1 Oy)",     250000, 100, INFO_VEO3),
+    # --- 14.08.2026, ertalab qo'shilgan mahsulotlar ---
+    (13, 10, "KlingAi 70 000 Cridet",                      6700000, 100, INFO_KLING_70K),
+    (14, 10, "KlingAi 900 Cridet",                          100000, 100, INFO_KLING_900),
+    (15,  8, "Higgsfield 3000 Cridet",                      770000, 100, INFO_HIGGS_3K),
+    (16,  2, "Claud 5x Liment",                             550000, 100, _claude_max(5)),
+    (17,  2, "Claud 20x Liment",                            840000, 100, _claude_max(20)),
+    (18,  2, "Claud 50$ lik Api",                           150000, 100, _claude_api(50)),
+    (19,  2, "Claud 100$ lik Api",                          190000, 100, _claude_api(100)),
+    (20,  2, "Claud 500$ lik Api",                          260000, 100, _claude_api(500)),
+    (21,  5, "Veo 3 Apk 45000 Cridet",                      250000, 100, INFO_VEO3_APK),
+    (22,  3, "ChatGpt x20 Pro",                             500000, 100, INFO_GPT_20X),
+    (23,  9, "ElevenLabs Creator 100k Cridet",              150000, 100, INFO_ELEVEN_100K),
 ]
 
 DB: aiosqlite.Connection = None
@@ -617,14 +712,14 @@ async def cmd_cancel(m: Message, state: FSMContext):
 @router.message(F.text.func(lambda s: norm(s) in BTN_ANY["srv"]))
 async def services(m: Message):
     u = await get_user(m)
-    await m.answer(quote(t(u["lang"], "cats", i=tg("shop"))),
+    await m.answer(quote(t(u["lang"], "cats", i=tg("shop"), s=SUPPORT)),
                    reply_markup=await cats_kb())
 
 
 @router.callback_query(F.data == "cats")
 async def back_cats(c: CallbackQuery):
     u = await get_user(c)
-    await safe_edit(c.message, quote(t(u["lang"], "cats", i=tg("shop"))),
+    await safe_edit(c.message, quote(t(u["lang"], "cats", i=tg("shop"), s=SUPPORT)),
                     await cats_kb())
     await c.answer()
 
@@ -1182,3 +1277,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         log.info("Bot to'xtatildi")
+      
