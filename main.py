@@ -35,8 +35,8 @@ CARD_NUMBER  = os.getenv("CARD_NUMBER", "5614 6867 0900 3860")
 CARD_OWNER   = os.getenv("CARD_OWNER", "ZAYNIDDIN SHODEYEV")
 GEMINI_KEY   = os.getenv("GEMINI_KEY", "AQ.Ab8RN6JwNyNSvtYRxvMxbeOfZt7rOCRd9ti923RubWVl3rMIaA")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-CHANNELS     = [c.strip() for c in os.getenv("CHANNELS", "@obunahub_rasmiy,@obunalarhub_guruh").split(",") if c.strip()]
-SUPPORT      = os.getenv("SUPPORT", "@XushvaqtovSh")
+CHANNELS     = [c.strip() for c in os.getenv("CHANNELS", "@obunalarhub_guruh").split(",") if c.strip()]
+SUPPORT      = os.getenv("SUPPORT", "@xushvaqtovsh")
 DB_PATH      = os.getenv("DB_PATH", "obunahub_v3.db")
 PORT         = int(os.getenv("PORT", "8080"))
 PREMIUM_UI   = os.getenv("PREMIUM_UI", "1") == "1"   # premium emoji ikonkalar
@@ -91,14 +91,11 @@ E = {
 FX = {"party": "5046509860389126442", "fire": "5104841245755180586",
       "like": "5107584321108051014", "heart": "5159385139981059251"}
 
-
 def fx(name):
     return FX.get(name) if USE_EFFECTS else None
 
-
 def fb(key):
     return E[key][1] if key in E else "•"
-
 
 def tg(key):
     if key not in E:
@@ -124,7 +121,6 @@ def B(text, key=None, style="primary", icon_id=None, alt=None, **kw):
         kw.pop("style", None); kw.pop("icon_custom_emoji_id", None)
         return IKB(text=f"{alt or fb(key)} {text}".strip() if key in E else text, **kw)
 
-
 def RB(text, key=None, style="primary"):
     kw = {}
     label = text
@@ -138,7 +134,6 @@ def RB(text, key=None, style="primary"):
         return KB(text=label, **kw)
     except Exception:
         return KB(text=f"{fb(key)} {text}" if key in E else text)
-
 
 def norm(s):
     return re.sub(r"^[^\wЀ-ӿ]+", "", (s or "")).strip().lower()
@@ -210,14 +205,11 @@ T = {
  },
 }
 
-
 def t(lang, key, **kw):
     return T.get(lang, T["uz"]).get(key, key).format(**kw)
 
-
 def quote(text):
     return f"<blockquote>{text}</blockquote>"
-
 
 # ================== BAZA ==================
 SCHEMA = """
@@ -241,16 +233,16 @@ CREATE TABLE IF NOT EXISTS order_items(oid INTEGER, pid INTEGER, price INTEGER);
 
 # ---------- BOSHLANG'ICH BO'LIMLAR (id, nom, emoji_id, fallback, tartib) ----------
 SEED_CATS = [
-    (2,  "Claud Ai",                              "6174520215376763867", "✴️"),
-    (3,  "ChatGpt",                               "5303113132460250222", "💬"),
-    (4,  "Supper Grok",                           "6179337489350663129", "🚀"),
-    (5,  "Flow Ai",                               "5829988925417988564", "🌊"),
-    (6,  "CapCut",                                "5978895591894161700", "📹"),
-    (7,  "Leoanardo Ai",                          "6133975818591805751", "💎"),
-    (8,  "Higgsfield",                            "5321074367864540441", "🎬"),
-    (9,  "ElevenLabs",                            "5821026106060317259", "🎧"),
-    (10, "KlingAi",                               "5841322399219326029", "🎥"),
-    (12, "Gemini Ai",                             "5452138632091569963", "✨"),
+    (2,  "Claud Ai",                                "6174520215376763867", "✴️"),
+    (3,  "ChatGpt",                                 "5303113132460250222", "💬"),
+    (4,  "Supper Grok",                             "6179337489350663129", "🚀"),
+    (5,  "Flow Ai",                                 "5829988925417988564", "🌊"),
+    (6,  "CapCut",                                  "5978895591894161700", "📹"),
+    (7,  "Leoanardo Ai",                            "6133975818591805751", "💎"),
+    (8,  "Higgsfield",                              "5321074367864540441", "🎬"),
+    (9,  "ElevenLabs",                              "5821026106060317259", "🎧"),
+    (10, "KlingAi",                                 "5841322399219326029", "🎥"),
+    (12, "Gemini Ai",                               "5452138632091569963", "✨"),
     (13, "Flow Ai Tasodify Cridetlar Tushadi!",   "5829988925417988564", "🌊"),
 ]
 
@@ -302,7 +294,6 @@ INFO_KLING_900 = (
 
 INFO_HIGGS_3K = "Bu obunaga 3 kun kafolat beramiz!"
 
-
 def _claude_max(x):
     return (
         f"Claude AI Pro ({x}x Max) — sun'iy intellektning eng yuqori bosqichi!\n"
@@ -319,7 +310,6 @@ def _claude_max(x):
         "yuz bersa, akkauntingiz zudlik bilan almashtirib beriladi (Full Replacement)."
     )
 
-
 def _claude_api(usd):
     return (
         "Mahsulot haqida:\n\n"
@@ -328,7 +318,6 @@ def _claude_api(usd):
         "• Amal qilish muddati: 1 oy (30 kun).\n"
         "• Kafolat: 1 oy (30 kunlik to'liq kafolat beriladi)."
     )
-
 
 INFO_VEO3_APK = (
     "Google Veo 3 Ultra — 45 000 AI kredit (1 oy)\n"
@@ -372,33 +361,32 @@ INFO_ELEVEN_100K = (
 
 # ---------- BOSHLANG'ICH MAHSULOTLAR (id, cat_id, nom, narx, zaxira, tavsif) ----------
 SEED_PRODS = [
-    (2,  2,  "Claude Pro (1 oylik)",                        165000, 100, INFO_CLAUDE),
-    (3,  3,  "ChatGPT Plus (1 oylik)",                      120000, 100, INFO_CHATGPT),
+    (2,  2,  "Claude Pro (1 oylik)",                         165000, 100, INFO_CLAUDE),
+    (3,  3,  "ChatGPT Plus (1 oylik)",                       120000, 100, INFO_CHATGPT),
     (4,  6,  "CapCut PRO (7 kunlik)",                        15000, 100, "7 kunlik to'liq kafolat."),
     (5,  6,  "CapCut PRO (30 kunlik)",                       42000, 100, "30 kunlik to'liq kafolat."),
-    (6,  6,  "CapCut PRO (3 oylik)",                        132000, 100, "3 oylik to'liq kafolat."),
-    (7,  6,  "CapCut PRO (6 oylik)",                        210000, 100, "6 oylik to'liq kafolat."),
-    (8,  6,  "CapCut PRO (1 yillik)",                       370000, 100, "1 yillik to'liq kafolat."),
+    (6,  6,  "CapCut PRO (3 oylik)",                         132000, 100, "3 oylik to'liq kafolat."),
+    (7,  6,  "CapCut PRO (6 oylik)",                         210000, 100, "6 oylik to'liq kafolat."),
+    (8,  6,  "CapCut PRO (1 yillik)",                        370000, 100, "1 yillik to'liq kafolat."),
     (9,  7,  "Leonardo Ai — 8500 kredit",                    50000, 100, "1 oylik obuna, 8500 kredit beriladi."),
     (10, 12, "Gemini Ai (18 oylik)",                         40000, 100, INFO_GEMINI),
     (11, 12, "Gemini Ai (12 oylik)",                         25000, 100, INFO_GEMINI),
-    (12, 13, "VEO3 Ultra 0-25k Tasodify Kredit (1 Oy)",     250000, 100, INFO_VEO3),
+    (12, 13, "VEO3 Ultra 0-25k Tasodify Kredit (1 Oy)",      250000, 100, INFO_VEO3),
     # --- 14.08.2026, ertalab qo'shilgan mahsulotlar ---
-    (13, 10, "KlingAi 70 000 Cridet",                      6700000, 100, INFO_KLING_70K),
-    (14, 10, "KlingAi 900 Cridet",                          100000, 100, INFO_KLING_900),
-    (15,  8, "Higgsfield 3000 Cridet",                      770000, 100, INFO_HIGGS_3K),
-    (16,  2, "Claud 5x Liment",                             550000, 100, _claude_max(5)),
-    (17,  2, "Claud 20x Liment",                            840000, 100, _claude_max(20)),
-    (18,  2, "Claud 50$ lik Api",                           150000, 100, _claude_api(50)),
-    (19,  2, "Claud 100$ lik Api",                          190000, 100, _claude_api(100)),
-    (20,  2, "Claud 500$ lik Api",                          260000, 100, _claude_api(500)),
-    (21,  5, "Veo 3 Apk 45000 Cridet",                      250000, 100, INFO_VEO3_APK),
-    (22,  3, "ChatGpt x20 Pro",                             500000, 100, INFO_GPT_20X),
-    (23,  9, "ElevenLabs Creator 100k Cridet",              150000, 100, INFO_ELEVEN_100K),
+    (13, 10, "KlingAi 70 000 Cridet",                        6700000, 100, INFO_KLING_70K),
+    (14, 10, "KlingAi 900 Cridet",                           100000, 100, INFO_KLING_900),
+    (15,  8, "Higgsfield 3000 Cridet",                       770000, 100, INFO_HIGGS_3K),
+    (16,  2, "Claud 5x Liment",                              550000, 100, _claude_max(5)),
+    (17,  2, "Claud 20x Liment",                             840000, 100, _claude_max(20)),
+    (18,  2, "Claud 50$ lik Api",                            150000, 100, _claude_api(50)),
+    (19,  2, "Claud 100$ lik Api",                           190000, 100, _claude_api(100)),
+    (20,  2, "Claud 500$ lik Api",                           260000, 100, _claude_api(500)),
+    (21,  5, "Veo 3 Apk 45000 Cridet",                       250000, 100, INFO_VEO3_APK),
+    (22,  3, "ChatGpt x20 Pro",                              500000, 100, INFO_GPT_20X),
+    (23,  9, "ElevenLabs Creator 100k Cridet",               150000, 100, INFO_ELEVEN_100K),
 ]
 
 DB: aiosqlite.Connection = None
-
 
 async def q(sql, args=(), fetch=None):
     cur = await DB.execute(sql, args)
@@ -411,7 +399,6 @@ async def q(sql, args=(), fetch=None):
     await DB.commit()
     await cur.close()
     return r
-
 
 async def init_db():
     global DB
@@ -434,7 +421,6 @@ async def init_db():
     log.info("Boshlang'ich ma'lumotlar yuklandi: %s bo'lim, %s mahsulot",
              len(SEED_CATS), len(SEED_PRODS))
 
-
 async def get_user(src):
     uid, name = src.from_user.id, src.from_user.full_name
     u = await q("SELECT * FROM users WHERE id=?", (uid,), "one")
@@ -443,7 +429,6 @@ async def get_user(src):
         alerts.new_user(uid)
         u = await q("SELECT * FROM users WHERE id=?", (uid,), "one")
     return u
-
 
 def level_of(n):
     return "🥉 Bronza" if n < 3 else ("🥈 Kumush" if n < 10 else "🥇 Oltin")
@@ -465,12 +450,10 @@ def main_menu(lang="uz", admin=False):
         rows.append([RB(ADMIN_BTN, "admin", "danger")])
     return RKM(keyboard=rows, resize_keyboard=True, is_persistent=True)
 
-
 def lang_kb():
     return IKM(inline_keyboard=[[
         IKB(text="🇺🇿 O'zbekcha", callback_data="lang:uz", style="primary"),
         IKB(text="🇷🇺 Русский",   callback_data="lang:ru", style="primary")]])
-
 
 async def cats_kb():
     rows, buf = [], []
@@ -485,7 +468,6 @@ async def cats_kb():
     if buf:
         rows.append(buf)
     return IKM(inline_keyboard=rows or [[B("Bo'sh", "warn", "danger", callback_data="nop")]])
-
 
 async def prods_kb(cid):
     c = await q("SELECT * FROM cats WHERE id=?", (cid,), "one")
@@ -503,7 +485,6 @@ async def prods_kb(cid):
     rows.append([B("Ortga", "back", "primary", callback_data="cats")])
     return IKM(inline_keyboard=rows)
 
-
 def prod_kb(pid, cid, sold=False):
     if sold:
         return IKM(inline_keyboard=[
@@ -514,18 +495,15 @@ def prod_kb(pid, cid, sold=False):
         [B("Savatga", "cart", "primary", callback_data=f"add:{pid}"),
          B("Ortga",   "back", "primary", callback_data=f"cat:{cid}")]])
 
-
 def order_kb(oid):
     return IKM(inline_keyboard=[[
         B("Tasdiqlash", "ok", "success", callback_data=f"ok:{oid}"),
         B("Rad etish",  "no", "danger",  callback_data=f"no:{oid}")]])
 
-
 def subs_kb():
     rows = [[B(ch, "link", "primary", url=f"https://t.me/{ch.lstrip('@')}")] for ch in CHANNELS]
     rows.append([B("Tekshirish", "ok", "success", callback_data="chk")])
     return IKM(inline_keyboard=rows)
-
 
 def admin_kb():
     return IKM(inline_keyboard=[
@@ -543,19 +521,15 @@ def admin_kb():
 class Buy(StatesGroup):
     receipt = State()
 
-
 class AI(StatesGroup):
     chat = State()
-
 
 class Adm(StatesGroup):
     cat = State(); editcat = State(); delcat = State()
     prod = State(); editprod = State(); delprod = State()
     ads = State(); give = State(); emoji = State()
 
-
 router = Router()
-
 
 # ================== YORDAMCHILAR ==================
 async def missing_subs(bot: Bot, uid: int):
@@ -569,7 +543,6 @@ async def missing_subs(bot: Bot, uid: int):
             log.warning("Kanal tekshiruvi xato (%s): %s", ch, e)
     return out
 
-
 async def safe_edit(msg: Message, text: str, kb=None):
     try:
         await msg.edit_text(text, reply_markup=kb)
@@ -578,7 +551,6 @@ async def safe_edit(msg: Message, text: str, kb=None):
             return
         with suppress(Exception):
             await msg.answer(text, reply_markup=kb)
-
 
 async def gemini(prompt: str) -> str:
     if not GEMINI_KEY:
@@ -603,19 +575,15 @@ async def gemini(prompt: str) -> str:
         log.error("Gemini xato: %s", e)
         return ""
 
-
 def is_admin(uid):
     return uid in ADMINS
-
 
 # ---------- ADMIN MATNINI TAHLIL QILISH ----------
 NUM_RE = re.compile(r"^\s*\d[\d\s.,']*\s*$")
 
-
 def _to_int(s):
     """'250 000', '250.000', '250,000' -> 250000"""
     return int(re.sub(r"[^\d]", "", s or "0") or 0)
-
 
 def parse_prod(text):
     """
@@ -642,11 +610,9 @@ def parse_prod(text):
         return None
     return cat_id, name, price, info
 
-
 def parse_prod_edit(text):
     """Format: prod_id | yangi_nom | yangi_narx | yangi_info"""
     return parse_prod(text)   # tuzilishi bir xil
-
 
 def parse_cat(text):
     """
@@ -679,7 +645,6 @@ async def cmd_start(m: Message, state: FSMContext, bot: Bot):
         reply_markup=main_menu(u["lang"], is_admin(m.from_user.id)),
         message_effect_id=fx("party"))
 
-
 @router.callback_query(F.data == "chk")
 async def check_sub(c: CallbackQuery, bot: Bot):
     u = await get_user(c)
@@ -693,12 +658,10 @@ async def check_sub(c: CallbackQuery, bot: Bot):
         reply_markup=main_menu(u["lang"], is_admin(c.from_user.id)),
         message_effect_id=fx("party"))
 
-
 @router.callback_query(F.data == "nop")
 async def nop(c: CallbackQuery):
     u = await get_user(c)
     await c.answer(f"{fb('sold')} " + t(u["lang"], "sold"), show_alert=True)
-
 
 @router.message(Command("cancel"))
 async def cmd_cancel(m: Message, state: FSMContext):
@@ -715,14 +678,12 @@ async def services(m: Message):
     await m.answer(quote(t(u["lang"], "cats", i=tg("shop"), s=SUPPORT)),
                    reply_markup=await cats_kb())
 
-
 @router.callback_query(F.data == "cats")
 async def back_cats(c: CallbackQuery):
     u = await get_user(c)
     await safe_edit(c.message, quote(t(u["lang"], "cats", i=tg("shop"), s=SUPPORT)),
                     await cats_kb())
     await c.answer()
-
 
 @router.callback_query(F.data.startswith("cat:"))
 async def open_cat(c: CallbackQuery):
@@ -735,7 +696,6 @@ async def open_cat(c: CallbackQuery):
                     quote(t(u["lang"], "prods", i=tg("shop"), c=cat["name"])),
                     await prods_kb(cid))
     await c.answer()
-
 
 @router.callback_query(F.data.startswith("prod:"))
 async def open_prod(c: CallbackQuery):
@@ -773,13 +733,11 @@ async def cart_view(uid, lang):
     kb_rows.append([B("Savatni tozalash", "trash", "danger", callback_data="cclr")])
     return txt, IKM(inline_keyboard=kb_rows)
 
-
 @router.message(F.text.func(lambda s: norm(s) in BTN_ANY["cart"]))
 async def cart_show(m: Message):
     u = await get_user(m)
     txt, kb = await cart_view(m.from_user.id, u["lang"])
     await m.answer(txt, reply_markup=kb)
-
 
 @router.callback_query(F.data.startswith("add:"))
 async def cart_add(c: CallbackQuery):
@@ -791,7 +749,6 @@ async def cart_add(c: CallbackQuery):
     await q("INSERT INTO cart(uid,pid) VALUES(?,?)", (c.from_user.id, pid))
     await c.answer(f"{fb('ok')} " + t(u["lang"], "added"), show_alert=True)
 
-
 @router.callback_query(F.data.startswith("cdel:"))
 async def cart_del(c: CallbackQuery):
     u = await get_user(c)
@@ -802,7 +759,6 @@ async def cart_del(c: CallbackQuery):
     txt, kb = await cart_view(c.from_user.id, u["lang"])
     await safe_edit(c.message, txt, kb)
     await c.answer()
-
 
 @router.callback_query(F.data == "cclr")
 async def cart_clear(c: CallbackQuery):
@@ -829,7 +785,6 @@ async def start_order(msg: Message, uid: int, items, state: FSMContext):
                              c_i=tg("gem"), o_i=tg("profile"), w=tg("warn"),
                              p=total, c=CARD_NUMBER, o=CARD_OWNER)))
 
-
 @router.callback_query(F.data.startswith("buy:"))
 async def buy_one(c: CallbackQuery, state: FSMContext):
     u = await get_user(c)
@@ -840,7 +795,6 @@ async def buy_one(c: CallbackQuery, state: FSMContext):
     await c.answer()
     await start_order(c.message, c.from_user.id,
                       [(p["id"], p["name"], p["price"])], state)
-
 
 @router.callback_query(F.data == "buycart")
 async def buy_cart(c: CallbackQuery, state: FSMContext):
@@ -854,7 +808,6 @@ async def buy_cart(c: CallbackQuery, state: FSMContext):
                               show_alert=True)
     await c.answer()
     await start_order(c.message, c.from_user.id, items, state)
-
 
 @router.message(Buy.receipt, F.photo)
 async def receipt(m: Message, state: FSMContext, bot: Bot):
@@ -878,12 +831,10 @@ async def receipt(m: Message, state: FSMContext, bot: Bot):
                 await bot.send_photo(adm, fid, caption=quote(cap),
                                      reply_markup=order_kb(oid))
 
-
 @router.message(Buy.receipt)
 async def receipt_wrong(m: Message):
     u = await get_user(m)
     await m.answer(quote(t(u["lang"], "need_photo", i=tg("warn"))))
-
 
 @router.callback_query(F.data.startswith(("ok:", "no:")))
 async def moderate(c: CallbackQuery, state: FSMContext, bot: Bot):
@@ -922,7 +873,6 @@ async def moderate(c: CallbackQuery, state: FSMContext, bot: Bot):
         f"{tg('arrow')} <b>#{oid}</b> uchun akkaunt / havolani yuboring:"))
     await c.answer()
 
-
 @router.message(Adm.give)
 async def deliver(m: Message, state: FSMContext, bot: Bot):
     if not is_admin(m.from_user.id):
@@ -944,7 +894,6 @@ async def profile(m: Message):
                            m=tg("money"), id=u["id"], n=u["name"],
                            lv=level_of(u["orders"]), c=u["orders"], s=u["spent"])))
 
-
 @router.message(F.text.func(lambda s: norm(s) in BTN_ANY["ord"]))
 async def my_orders(m: Message):
     u = await get_user(m)
@@ -958,12 +907,10 @@ async def my_orders(m: Message):
                      f"{r['title'][:35]} — <b>{r['total']:,}</b>" for r in rows)
     await m.answer(quote(t(u["lang"], "ord_t", i=tg("orders")) + "\n\n" + body))
 
-
 @router.message(F.text.func(lambda s: norm(s) in BTN_ANY["lang"]))
 async def change_lang(m: Message):
     u = await get_user(m)
     await m.answer(quote(t(u["lang"], "lang_q", i=tg("lang"))), reply_markup=lang_kb())
-
 
 @router.callback_query(F.data.startswith("lang:"))
 async def set_lang(c: CallbackQuery):
@@ -975,7 +922,6 @@ async def set_lang(c: CallbackQuery):
     await c.message.answer(quote(f"{tg('ok')} <b>OK</b>"),
                            reply_markup=main_menu(lg, is_admin(c.from_user.id)))
     await c.answer()
-
 
 @router.message(F.text.func(lambda s: norm(s) in BTN_ANY["help"]))
 async def contact(m: Message):
@@ -994,7 +940,6 @@ async def ai_on(m: Message, state: FSMContext):
         return await m.answer(quote(f"{tg('warn')} {t(u['lang'], 'no_ai')}"))
     await state.set_state(AI.chat)
     await m.answer(quote(t(u["lang"], "ai_on", i=tg("ai"))))
-
 
 @router.message(AI.chat, F.text)
 async def ai_chat(m: Message):
@@ -1017,30 +962,25 @@ async def test_alert(m: Message):
     alerts.test()
     await m.answer("Test alert yuborildi. Guruhni tekshiring.")
 
-
 @router.message(Command("admin"))
 async def admin_cmd(m: Message):
     if is_admin(m.from_user.id):
         await m.answer(quote(f"{tg('admin')} <b>Admin panel</b>"), reply_markup=admin_kb())
-
 
 @router.message(F.text.func(lambda s: norm(s) == norm(ADMIN_BTN)))
 async def admin_btn(m: Message):
     if is_admin(m.from_user.id):
         await m.answer(quote(f"{tg('admin')} <b>Admin panel</b>"), reply_markup=admin_kb())
 
-
 async def cats_list_text():
     cs = await q("SELECT * FROM cats ORDER BY pos, id", (), "all")
     return "\n".join(f"<code>{c['id']}</code> — {c['name']}" for c in cs) or "bo'lim yo'q"
-
 
 async def prods_list_text():
     ps = await q("""SELECT p.*, c.name cname FROM prods p
                     LEFT JOIN cats c ON c.id=p.cat ORDER BY p.id""", (), "all")
     return "\n".join(f"<code>{p['id']}</code> — {p['name']} "
                      f"({p['price']:,} so'm) · {p['cname'] or '—'}" for p in ps) or "mahsulot yo'q"
-
 
 @router.callback_query(F.data.startswith("a:"))
 async def admin_actions(c: CallbackQuery, state: FSMContext):
@@ -1107,7 +1047,6 @@ async def admin_actions(c: CallbackQuery, state: FSMContext):
 
     await c.answer()
 
-
 @router.message(Adm.cat)
 async def add_cat(m: Message, state: FSMContext):
     res = parse_cat(m.text or m.caption or "")
@@ -1125,7 +1064,6 @@ async def add_cat(m: Message, state: FSMContext):
     await m.answer(quote(f"✅ Bo'lim qo'shildi.\nID: <code>{cid}</code> · {name}"))
     await state.clear()
 
-
 @router.message(Adm.editcat)
 async def edit_cat(m: Message, state: FSMContext):
     p = [x.strip() for x in (m.text or "").split("|")]
@@ -1139,7 +1077,6 @@ async def edit_cat(m: Message, state: FSMContext):
         await m.answer(quote("❌ Format xato. Namuna:\n<code>5 | Flow Ai | 5829988925417988564</code>"))
     await state.clear()
 
-
 @router.message(Adm.delcat)
 async def del_cat(m: Message, state: FSMContext):
     if (m.text or "").strip().isdigit():
@@ -1151,7 +1088,6 @@ async def del_cat(m: Message, state: FSMContext):
     else:
         await m.answer(quote("❌ Faqat raqam (ID) yuboring."))
     await state.clear()
-
 
 @router.message(Adm.prod)
 async def add_prod(m: Message, state: FSMContext):
@@ -1172,7 +1108,6 @@ async def add_prod(m: Message, state: FSMContext):
                          f"ID: <code>{pid}</code> · {name} — {price:,} so'm"))
     await state.clear()
 
-
 @router.message(Adm.editprod)
 async def edit_prod(m: Message, state: FSMContext):
     res = parse_prod_edit(m.text or "")
@@ -1190,7 +1125,6 @@ async def edit_prod(m: Message, state: FSMContext):
     await m.answer(quote(f"✅ Mahsulot tahrirlandi.\n{name} — {price:,} so'm"))
     await state.clear()
 
-
 @router.message(Adm.delprod)
 async def del_prod(m: Message, state: FSMContext):
     if (m.text or "").strip().isdigit():
@@ -1201,7 +1135,6 @@ async def del_prod(m: Message, state: FSMContext):
     else:
         await m.answer(quote("❌ Faqat raqam (ID) yuboring."))
     await state.clear()
-
 
 @router.message(Adm.ads)
 async def send_ads(m: Message, state: FSMContext, bot: Bot):
@@ -1224,11 +1157,9 @@ async def send_ads(m: Message, state: FSMContext, bot: Bot):
 async def handle_ping(request):
     return web.Response(text="OBUNALAR HUB — bot onlayn")
 
-
 async def on_shutdown():
     if DB:
         await DB.close()
-
 
 async def main():
     if not BOT_TOKEN:
@@ -1271,10 +1202,8 @@ async def main():
         await runner.cleanup()
         await on_shutdown()
 
-
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         log.info("Bot to'xtatildi")
-      
